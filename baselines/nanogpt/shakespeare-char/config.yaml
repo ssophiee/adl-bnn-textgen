@@ -1,0 +1,123 @@
+_wandb:
+    value:
+        cli_version: 0.21.1
+        e:
+            oynd0ssilynh77cjz36inn4q3atntnbg:
+                args:
+                    - config/train_shakespeare_char.py
+                    - --dtype=float16
+                    - --init_from=scratch
+                    - --max_iters=1000
+                codePath: train.py
+                codePathLocal: train.py
+                cpu_count: 1
+                cpu_count_logical: 2
+                cudaVersion: "12.4"
+                disk:
+                    /:
+                        total: "120942624768"
+                        used: "42066935808"
+                email: sofiia.nikolenko@campus.lmu.de
+                executable: /usr/bin/python3
+                git:
+                    commit: 93a43d9a5c22450bbf06e78da2cb6eeef084b717
+                    remote: https://github.com/karpathy/nanoGPT
+                gpu: Tesla T4
+                gpu_count: 1
+                gpu_nvidia:
+                    - architecture: Turing
+                      cudaCores: 2560
+                      memoryTotal: "16106127360"
+                      name: Tesla T4
+                      uuid: GPU-231313a4-0506-afbd-968c-02287e828f2d
+                host: 3451045eb18e
+                memory:
+                    total: "13608370176"
+                os: Linux-6.1.123+-x86_64-with-glibc2.35
+                program: /content/nanoGPT/train.py
+                python: CPython 3.12.11
+                root: /content/nanoGPT
+                startedAt: "2025-08-26T13:35:03.702553Z"
+                writerId: oynd0ssilynh77cjz36inn4q3atntnbg
+        m: []
+        python_version: 3.12.11
+        t:
+            "1":
+                - 1
+                - 105
+            "2":
+                - 1
+                - 105
+            "3":
+                - 13
+                - 16
+            "4": 3.12.11
+            "5": 0.21.1
+            "12": 0.21.1
+            "13": linux-x86_64
+always_save_checkpoint:
+    value: false
+backend:
+    value: nccl
+batch_size:
+    value: 64
+beta1:
+    value: 0.9
+beta2:
+    value: 0.99
+bias:
+    value: false
+block_size:
+    value: 256
+compile:
+    value: true
+dataset:
+    value: shakespeare_char
+decay_lr:
+    value: true
+device:
+    value: cuda
+dropout:
+    value: 0.2
+dtype:
+    value: float16
+eval_interval:
+    value: 100
+eval_iters:
+    value: 100
+eval_only:
+    value: false
+grad_clip:
+    value: 1
+gradient_accumulation_steps:
+    value: 1
+init_from:
+    value: scratch
+learning_rate:
+    value: 0.001
+log_interval:
+    value: 10
+lr_decay_iters:
+    value: 5000
+max_iters:
+    value: 1000
+min_lr:
+    value: 0.0001
+n_embd:
+    value: 384
+n_head:
+    value: 6
+n_layer:
+    value: 6
+out_dir:
+    value: out-shakespeare-char
+wandb_log:
+    value: true
+wandb_project:
+    value: shakespeare-char
+wandb_run_name:
+    value: mini-gpt-gpu
+warmup_iters:
+    value: 100
+weight_decay:
+    value: 0.1
