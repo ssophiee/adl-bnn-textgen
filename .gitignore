@@ -2,3 +2,5 @@
 .DS_Store
 wandb/
 __pycache__/
+*.pkl
+*.pt
