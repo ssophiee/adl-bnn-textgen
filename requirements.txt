@@ -1,5 +1,27 @@
-torch=2.8.0
-ipykernel=6.30.1
-pyyaml=6.0.2
-matplotlib=3.10.6
-seaborn=0.13.2
+# Core dependencies
+torch>=2.0.0
+numpy>=1.24.0
+matplotlib>=3.6.0
+seaborn>=0.12.0
+pyyaml>=6.0
+
+# Evaluation metrics
+evaluate>=0.4.0
+datasets>=2.14.0
+rouge_score>=0.1.2
+
+# Bayesian neural networks
+posteriors>=0.1.1
+
+
+# Utilities
+pathlib>=1.0.1
+typing-extensions>=4.0.0
+
+# Jupyter notebook support
+ipykernel>=6.0.0
+jupyter>=1.0.0
+
+# Optional: Advanced optimization (for posteriors)
+torchopt>=0.7.0
+optree>=0.8.0
