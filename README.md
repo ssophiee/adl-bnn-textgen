@@ -1,0 +1,1 @@
+- Posteriors [package](https://github.com/normal-computing/posteriors) and [documentation](https://normal-computing.github.io/posteriors/)
