@@ -12,3 +12,6 @@ DATASET_PATH = BASE_DIR / "baselines" / "nanogpt" / "dataset.txt"
 
 # Device
 DEVICE = "cuda" if __name__ == "__main__" else "cpu"
+
+
+START_PROMPT = "to be o"
