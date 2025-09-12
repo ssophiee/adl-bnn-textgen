@@ -1,0 +1,44 @@
+{
+  "timestamp": "2025-09-12T16:29:39.455331",
+  "config": {
+    "data_dir": "nanoGPT/data/shakespeare",
+    "model_path": "../checkpoints/baseline_token_level_nano/token_level_1500_iter.pt",
+    "meta_path": "../checkpoints/baseline_nanogpt/nanogpt_meta.pkl",
+    "batch_size": 16,
+    "max_eval_samples": 1000,
+    "device": "auto",
+    "splits": [
+      "val",
+      "train"
+    ],
+    "num_text_samples": 50,
+    "prompt_length": 20,
+    "generation_length": 30
+  },
+  "results": {
+    "val": {
+      "split": "val",
+      "total_tokens": 36059,
+      "perplexity": 142.19826382152777,
+      "bleu": 0.0,
+      "rouge1": 0.0,
+      "rouge2": 0.0,
+      "rougeL": 0.0
+    },
+    "train": {
+      "split": "train",
+      "total_tokens": 301966,
+      "perplexity": 15.747321670035742,
+      "bleu": 0.0,
+      "rouge1": 0.0,
+      "rouge2": 0.0,
+      "rougeL": 0.0
+    }
+  },
+  "model_info": {
+    "model_path": "../checkpoints/baseline_token_level_nano/token_level_1500_iter.pt",
+    "meta_path": "../checkpoints/baseline_nanogpt/nanogpt_meta.pkl",
+    "vocab_size": 65,
+    "device": "cpu"
+  }
+}
