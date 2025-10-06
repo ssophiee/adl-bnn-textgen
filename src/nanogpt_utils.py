@@ -46,10 +46,8 @@ def load_model(model_path: Optional[Path] = None, device: str = 'cpu') -> Tuple[
     GPT, GPTConfig = _import_nanogpt()
     
     if model_path is None:
-        model_path = config.MODEL_PATH
-    
-    print(f"Loading model from: {model_path}")
-    
+        model_path = config_prev.MODEL_PATH
+        
     # Load checkpoint
     checkpoint = torch.load(model_path, map_location='cpu')
     
