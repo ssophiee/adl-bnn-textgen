@@ -4,4 +4,4 @@ wandb/
 __pycache__/
 *.pkl
 *.pt
-bayesian_nanogpt
+bayesian_nanogpt/
