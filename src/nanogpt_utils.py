@@ -9,7 +9,6 @@ import yaml
 import re
 import random
 import sys
-import os
 from pathlib import Path
 from typing import List, Tuple, Dict, Any, Optional
 
@@ -46,7 +45,7 @@ def load_model(model_path: Optional[Path] = None, device: str = 'cpu') -> Tuple[
     GPT, GPTConfig = _import_nanogpt()
     
     if model_path is None:
-        model_path = config_prev.MODEL_PATH
+        model_path = config.MODEL_PATH
         
     # Load checkpoint
     checkpoint = torch.load(model_path, map_location='cpu')
@@ -106,6 +105,10 @@ def encode(text: str, stoi: Dict[str, int]) -> List[int]:
     Returns:
         List of token indices
     """
+    for c in text:
+        if c not in stoi:
+            raise ValueError(f"Character '{c}' not in vocabulary")
+        
     return [stoi[c] for c in text]
 
 
@@ -120,6 +123,9 @@ def decode(tokens: List[int], itos: Dict[int, str]) -> str:
     Returns:
         Decoded text string
     """
+    for c in tokens:
+        if c not in itos:
+            raise ValueError(f"Token index '{c}' not in vocabulary")
     return ''.join([itos[i] for i in tokens])
 
 
