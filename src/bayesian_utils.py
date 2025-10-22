@@ -297,9 +297,15 @@ class BayesianSamplerPipeline:
                             for k in state.log_sd_diag:
                                 state.log_sd_diag[k].clamp_(max=max_log_scale)
 
+                    # transform.update() returns (new_state, aux_data)
+                    state, aux = transform.update(state, batch)
+                    
+                    # Extract params from state (should be VIDiagState or similar named tuple)
+                    current_params = state.params
+                    
                     with torch.no_grad():
-                        current_loss = single_batch_loss(state.params, batch)
-                        current_log_post, _ = log_posterior_fn(state.params, batch)
+                        current_loss = single_batch_loss(current_params, batch)
+                        current_log_post, _ = log_posterior_fn(current_params, batch)
                         
                         epoch_losses.append(current_loss.item())
                         epoch_log_posts.append(current_log_post.item())
@@ -416,6 +422,9 @@ class BayesianSamplerPipeline:
         x_test, y_test = test_batch
         results = {}
         
+        # State is VIDiagState or similar named tuple with .params attribute
+        current_params = state.params
+        
         # 0. Deterministic model evaluation
         print("\n0. Deterministic Model (Original):")
         deterministic_results = evaluate_deterministic_model(model, test_batch)
@@ -427,7 +436,7 @@ class BayesianSamplerPipeline:
         # 1. Posterior mean prediction
         print("\n1. Bayesian Posterior Mean Prediction:")
         with torch.no_grad():
-            logits, _ = func.functional_call(model, state.params, (x_test,))
+            logits, _ = func.functional_call(model, current_params, (x_test,))
             loss = F.cross_entropy(
                 logits.view(-1, logits.size(-1)),
                 y_test.view(-1)
@@ -463,7 +472,7 @@ class BayesianSamplerPipeline:
             elif self.sampler_type == 'laplace':
                 sample_params = posteriors.laplace.diag_fisher.sample(state)
             elif self.sampler_type == 'sgmcmc':
-                sample_params = state.params
+                sample_params = state.params if hasattr(state, 'params') else current_params
             
             with torch.no_grad():
                 sample_logits, _ = func.functional_call(model, sample_params, (x_test,))
@@ -505,6 +514,7 @@ class BayesianSamplerPipeline:
         
         # 4. Parameter uncertainty (if available)
         if hasattr(state, 'log_scale') or hasattr(state, 'log_sd_diag'):
+        if hasattr(state, 'log_scale') or hasattr(state, 'log_sd_diag'):
             print(f"\n4. Parameter Uncertainty:")
             total_params = 0
             total_std = 0
@@ -512,7 +522,13 @@ class BayesianSamplerPipeline:
             log_scale_attr = 'log_scale' if hasattr(state, 'log_scale') else 'log_sd_diag'
             log_scale_dict = getattr(state, log_scale_attr)
 
+            
+            # Handle different naming conventions
+            log_scale_attr = 'log_scale' if hasattr(state, 'log_scale') else 'log_sd_diag'
+            log_scale_dict = getattr(state, log_scale_attr)
+            
             for name in state.params:
+                param_std = torch.exp(log_scale_dict[name]).mean().item()
                 param_std = torch.exp(log_scale_dict[name]).mean().item()
                 param_count = state.params[name].numel()
                 
@@ -580,11 +596,14 @@ class BayesianSamplerPipeline:
         if evaluation_results:
             complete_metrics['evaluation'] = evaluation_results
         
+        # State is VIDiagState or similar named tuple with .params attribute
+        current_params = state.params
+        
         # Save model state
         model_path = version_dir / f'{self.sampler_type}_model.pt'
         saved_state = {
             'model_state_dict': model.state_dict(),
-            'sampler_state_params': {k: v.cpu() for k, v in state.params.items()},
+            'sampler_state_params': {k: v.cpu() for k, v in current_params.items()},
             'sampler_state_aux': {k: v.cpu() if isinstance(v, torch.Tensor) else v 
                                   for k, v in state.aux.items()} if hasattr(state, 'aux') else {},
             'complete_metrics': complete_metrics
@@ -706,7 +725,7 @@ Parameter Uncertainty:
         
         report += f"\n{'='*70}\n"
         
-        with open(report_path, 'w') as f:
+        with open(report_path, 'w', encoding='utf-8') as f:
             f.write(report)
 
 
