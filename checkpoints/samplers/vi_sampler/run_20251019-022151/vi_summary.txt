@@ -1,0 +1,62 @@
+
+======================================================================
+BAYESIAN MODEL TRAINING SUMMARY
+======================================================================
+Sampler: VI
+Generated: 2025-10-19T02:21:51.622629
+
+CONFIGURATION:
+----------------------------------------------------------------------
+  batch_size: 16
+  train_samples: 10000
+  max_seq_length: 128
+  num_epochs: 15
+  learning_rate: 0.0001
+  temperature: 1
+  vi_n_samples: 1
+  prior_std: 1
+  prior_strength: 10.0
+  init_log_scale: -5
+  max_log_scale: 2
+  prior_beta: 0.0005
+  num_samples: 10
+  max_new_tokens: 100
+  generation_temperature: 0.8
+  save_dir: checkpoints/samplers
+  wandb_project: bayesian-nanogpt
+  weight_decay: 0.01
+  kl_weight: 1.0
+
+TRAINING SUMMARY:
+----------------------------------------------------------------------
+Total Epochs: 15
+Final Training Loss: 1.2412
+Final Log Posterior: -1.7384
+Total Training Time: 31459.05s
+Avg Time per Epoch: 2097.27s
+
+EVALUATION RESULTS:
+----------------------------------------------------------------------
+
+Deterministic Model (Original):
+  Loss: 0.5423
+  Perplexity: 1.7199
+
+Bayesian Posterior Mean:
+  Loss: 0.5254
+  Perplexity: 1.6911
+  Improvement: +0.0169
+  Status: ✓ Better than deterministic
+
+Posterior Sampling (5 samples):
+  Mean Loss: 0.5887 ± 0.0351
+  Loss Range: [0.5385, 0.6220]
+
+Uncertainty Quantification:
+  Avg Predictive Entropy: 0.8559
+  Entropy Range: [0.0074, 2.1269]
+
+Parameter Uncertainty:
+  Avg Parameter Std: 0.008838
+
+======================================================================

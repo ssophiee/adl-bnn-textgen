@@ -1,0 +1,94 @@
+{
+  "sampler_type": "vi",
+  "config": {
+    "batch_size": 32,
+    "train_samples": 2000,
+    "max_seq_length": 128,
+    "num_epochs": 5,
+    "learning_rate": 0.0005,
+    "temperature": 1,
+    "vi_n_samples": 1,
+    "prior_std": 1,
+    "prior_strength": 10.0,
+    "init_log_scale": -5,
+    "max_log_scale": 2,
+    "prior_beta": 1e-06,
+    "num_samples": 10,
+    "max_new_tokens": 100,
+    "generation_temperature": 0.8,
+    "save_dir": "checkpoints/samplers",
+    "wandb_project": "bayesian-nanogpt",
+    "weight_decay": 0.01,
+    "kl_weight": 1.0
+  },
+  "training_metrics": {
+    "training_losses": [
+      1.266832032847026,
+      1.2709056053842818,
+      1.279661738683307,
+      1.2836399532499767,
+      1.3108460335504442
+    ],
+    "log_posterior_values": [
+      -1.2665555391992842,
+      -1.2840583154133387,
+      -1.278175777859158,
+      -1.308828730431814,
+      -1.310490127593752
+    ],
+    "epoch_times": [
+      825.054923,
+      510.169137,
+      504.647414,
+      1029.876201,
+      474.416313
+    ],
+    "sampler_specific_metrics": [
+      {
+        "epoch": 0,
+        "avg_parameter_std": 0.006872609723359346
+      },
+      {
+        "epoch": 1,
+        "avg_parameter_std": 0.007001345511525869
+      },
+      {
+        "epoch": 2,
+        "avg_parameter_std": 0.007131288293749094
+      },
+      {
+        "epoch": 3,
+        "avg_parameter_std": 0.007263337727636099
+      },
+      {
+        "epoch": 4,
+        "avg_parameter_std": 0.007397679146379232
+      }
+    ]
+  },
+  "timestamp": "2025-10-16T12:11:06.614338",
+  "evaluation": {
+    "deterministic": {
+      "loss": 0.5185390114784241,
+      "perplexity": 1.6795719861984253
+    },
+    "posterior_mean": {
+      "loss": 0.6350546479225159,
+      "perplexity": 1.8871252536773682,
+      "improvement_over_deterministic": -0.1165156364440918,
+      "better_than_deterministic": false
+    },
+    "posterior_sampling": {
+      "mean_loss": 0.6500493168830872,
+      "std_loss": 0.03769636668305639,
+      "min_loss": 0.6213231086730957,
+      "max_loss": 0.724125325679779,
+      "num_samples": 5
+    },
+    "uncertainty": {
+      "avg_predictive_entropy": 0.8176741003990173,
+      "max_predictive_entropy": 2.438607692718506,
+      "min_predictive_entropy": 0.007249808870255947
+    }
+  }
+}

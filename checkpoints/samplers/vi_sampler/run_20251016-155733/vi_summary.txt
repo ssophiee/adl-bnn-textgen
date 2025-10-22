@@ -1,0 +1,63 @@
+Progress: it's learning now. Loss is decreasing.
+Potential space for improvement: increase prior_beta to add some weight to prior and not rely on mostly on data.
+
+The avg_parameter_std started at ~0.0067 and grew, showing that the model is learning a meaningful posterior variance. 
+Furthermore, the std_loss in the sampling section (0.038) is a healthy number, proving your samples are diverse.
+======================================================================
+BAYESIAN MODEL TRAINING SUMMARY
+======================================================================
+Sampler: VI
+Generated: 2025-10-16T15:57:33.783754
+
+CONFIGURATION:
+----------------------------------------------------------------------
+  batch_size: 32
+  train_samples: 2000
+  max_seq_length: 128
+  num_epochs: 5
+  learning_rate: 0.0001
+  temperature: 1
+  vi_n_samples: 1
+  prior_std: 1
+  prior_strength: 10.0
+  init_log_scale: -5
+  max_log_scale: 2
+  prior_beta: 1e-06
+  num_samples: 10
+  max_new_tokens: 100
+  generation_temperature: 0.8
+  save_dir: checkpoints/samplers
+  wandb_project: bayesian-nanogpt
+  weight_decay: 0.01
+  kl_weight: 1.0
+
+TRAINING SUMMARY:
+----------------------------------------------------------------------
+Total Epochs: 5
+Final Training Loss: 1.2627
+Final Log Posterior: -1.2602
+Total Training Time: 3656.86s
+Avg Time per Epoch: 731.37s
+
+EVALUATION RESULTS:
+----------------------------------------------------------------------
+
+Deterministic Model (Original):
+  Loss: 0.5185
+  Perplexity: 1.6796
+
+Bayesian Posterior Mean:
+  Loss: 0.5313
+  Perplexity: 1.7012
+  Improvement: -0.0128
+  Status: ✗ Worse than deterministic
+
+Posterior Sampling (5 samples):
+  Mean Loss: 0.5552 ± 0.0380
+  Loss Range: [0.5298, 0.6301]
+
+Uncertainty Quantification:
+  Avg Predictive Entropy: 0.8118
+  Entropy Range: [0.0121, 2.4539]
+
+======================================================================

@@ -3,17 +3,19 @@ Utility functions for Bayesian inference with deterministic model comparison.
 """
 import torch
 import wandb
+import math
+import torchopt
 import datetime
 import numpy as np
 from torch import func
 import posteriors
 import torch.nn.functional as F
 from pathlib import Path
+from torch.optim.lr_scheduler import CosineAnnealingLR
 from config import DEVICE, CONFIG, MODEL_PATH, WANDB_AVAILABLE
 from src.nanogpt_utils import load_model
 MODEL, checkpoint = load_model(Path(MODEL_PATH))
-
-
+INITIAL_PARAMS = {k: v.clone().to(DEVICE) for k, v in MODEL.named_parameters()}
 
 def create_training_batches(data, batch_size, seq_length, num_samples):
     """Create training batches from the data for next-token prediction"""
@@ -62,8 +64,10 @@ def log_posterior_fn(params, batch):
         raise
     
     try:
-        # TODO: Adjust prior std if needed
-        log_prior = posteriors.diag_normal_log_prob(params)
+        # During the first iteration, INITIAL_PARAMS is the same as params
+        # so the log prior will be zero. This is expected.
+        
+        log_prior = posteriors.diag_normal_log_prob(params, mean=INITIAL_PARAMS, sd_diag=CONFIG.get('prior_std', 0.01))
         print(f"Log prior computed successfully: {log_prior}")
     except Exception as e:
         print(f"Error in diag_normal_log_prob: {e}")
@@ -71,7 +75,10 @@ def log_posterior_fn(params, batch):
     
     try:
         num_data_tensor = torch.tensor(float(CONFIG['train_samples']), device=DEVICE, dtype=torch.float32)
-        log_posterior = -nll + log_prior / num_data_tensor
+        beta = CONFIG.get('prior_beta', 1.0)
+
+        # beta scales the influence of the prior (too strong because of the number of parameters)
+        log_posterior = -nll + beta * (log_prior / num_data_tensor) 
         print(f"Log posterior computed successfully: {log_posterior}")
         return log_posterior, {}
     except Exception as e:
@@ -174,14 +181,26 @@ class BayesianSamplerPipeline:
     
     def _setup_vi(self, log_posterior_fn, params):
         """Setup Variational Inference (Diagonal Gaussian)"""
-        import torchopt
-        optimizer = torchopt.adam(lr=self.config.get('learning_rate', 1e-3))
+        # Create learning rate schedule and calculate total steps
+        num_batches_per_epoch = math.ceil(
+                    self.config['train_samples'] / self.config['batch_size']
+        )
+        total_steps = self.config['num_epochs'] * num_batches_per_epoch        
+        lr_schedule = torchopt.schedule.linear_schedule(
+            init_value=self.config.get('learning_rate', 1e-3),
+            end_value=0.0,
+            transition_steps=total_steps
+        )
+        # Pass the schedule to the optimizer
+        optimizer = torchopt.adam(lr=lr_schedule)
+        # optimizer = torchopt.adam(lr=self.config.get('learning_rate', 1e-3))
         
         transform = posteriors.vi.diag.build(
             log_posterior=log_posterior_fn,
             optimizer=optimizer,
             temperature=self.config.get('temperature', 1.0),
-            n_samples=self.config.get('vi_n_samples', 1)
+            n_samples=self.config.get('vi_n_samples', 1),
+            init_log_sds=self.config.get('init_log_scale', -10),
         )
         
         state = transform.init(params)
@@ -269,7 +288,15 @@ class BayesianSamplerPipeline:
             for batch_idx, batch in enumerate(training_batches):
                 try:
                     state = transform.update(state, batch)
-                    
+
+                    if self.sampler_type in ['vi', 'ekf']:
+                        # For VI and EKF, state contains log_sd_diag (std in log space)
+                        max_log_scale = self.config.get('max_log_scale', -8)
+                        # clamp log_scale (std is saved in log_scale in VI: log_scale = log(σ)) to prevent variance explosion
+                        with torch.no_grad():
+                            for k in state.log_sd_diag:
+                                state.log_sd_diag[k].clamp_(max=max_log_scale)
+
                     with torch.no_grad():
                         current_loss = single_batch_loss(state.params, batch)
                         current_log_post, _ = log_posterior_fn(state.params, batch)
@@ -353,9 +380,9 @@ class BayesianSamplerPipeline:
         metrics = {'epoch': epoch}
         
         if self.sampler_type in ['vi', 'ekf', 'laplace']:
-            if hasattr(state, 'log_scale'):
+            if hasattr(state, 'log_sd_diag'):
                 avg_std = torch.mean(torch.stack([
-                    torch.exp(v).mean() for v in state.log_scale.values()
+                    torch.exp(v).mean() for v in state.log_sd_diag.values()
                 ])).item()
                 metrics['avg_parameter_std'] = avg_std
         
@@ -477,13 +504,16 @@ class BayesianSamplerPipeline:
         print(f"  Range: [{pred_entropy.min().item():.4f}, {pred_entropy.max().item():.4f}]")
         
         # 4. Parameter uncertainty (if available)
-        if hasattr(state, 'log_scale'):
+        if hasattr(state, 'log_scale') or hasattr(state, 'log_sd_diag'):
             print(f"\n4. Parameter Uncertainty:")
             total_params = 0
             total_std = 0
             
+            log_scale_attr = 'log_scale' if hasattr(state, 'log_scale') else 'log_sd_diag'
+            log_scale_dict = getattr(state, log_scale_attr)
+
             for name in state.params:
-                param_std = torch.exp(state.log_scale[name]).mean().item()
+                param_std = torch.exp(log_scale_dict[name]).mean().item()
                 param_count = state.params[name].numel()
                 
                 total_params += param_count
@@ -526,7 +556,8 @@ class BayesianSamplerPipeline:
         import datetime
         import json
         
-        project_root = Path().resolve().parents[0]
+        project_root = Path() #.resolve().parents[0]
+        print("PROJECT ROOT:", project_root)  # Debugging line
         save_dir = project_root / self.config.get('save_dir', 'checkpoints') / f"{self.sampler_type}_sampler"
         save_dir.mkdir(parents=True, exist_ok=True)
 
@@ -688,7 +719,7 @@ def run_bayesian_pipeline(training_batches, sampler_type='vi', use_wandb=True):
         sampler_type: One of 'vi', 'ekf', 'laplace', 'sgmcmc'
         use_wandb: Whether to use Weights & Biases tracking
     """
-    params = dict(MODEL.named_parameters())
+    params = {k: v.clone().to(DEVICE) for k, v in MODEL.named_parameters()}
 
     pipeline = BayesianSamplerPipeline(
         sampler_type=sampler_type,

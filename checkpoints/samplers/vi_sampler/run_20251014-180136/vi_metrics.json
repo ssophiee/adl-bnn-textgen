@@ -1,0 +1,88 @@
+{
+  "sampler_type": "vi",
+  "config": {
+    "batch_size": 32,
+    "train_samples": 2000,
+    "max_seq_length": 128,
+    "num_epochs": 5,
+    "learning_rate": 1e-05,
+    "temperature": 0.01,
+    "vi_n_samples": 1,
+    "prior_std": 0.001,
+    "prior_strength": 10.0,
+    "init_log_scale": -10,
+    "max_log_scale": -5,
+    "num_samples": 10,
+    "max_new_tokens": 100,
+    "generation_temperature": 0.8,
+    "save_dir": "checkpoints/samplers",
+    "wandb_project": "bayesian-nanogpt",
+    "weight_decay": 0.01,
+    "kl_weight": 1.0
+  },
+  "training_metrics": {
+    "training_losses": [
+      1.2612862927573067,
+      1.2581903347893366,
+      1.2512081464131672,
+      1.246850998628707,
+      1.262016565080673
+    ],
+    "log_posterior_values": [
+      -4226396.650793651,
+      -4221793.404761905,
+      -4217266.523809524,
+      -4212758.547619048,
+      -4208245.476190476
+    ],
+    "epoch_times": [
+      383.575066,
+      407.353404,
+      839.005257,
+      778.681899,
+      460.831945
+    ],
+    "sampler_specific_metrics": [
+      {
+        "epoch": 0
+      },
+      {
+        "epoch": 1
+      },
+      {
+        "epoch": 2
+      },
+      {
+        "epoch": 3
+      },
+      {
+        "epoch": 4
+      }
+    ]
+  },
+  "timestamp": "2025-10-14T18:01:36.612907",
+  "evaluation": {
+    "deterministic": {
+      "loss": 0.5185390114784241,
+      "perplexity": 1.6795719861984253
+    },
+    "posterior_mean": {
+      "loss": 0.5167825222015381,
+      "perplexity": 1.6766244173049927,
+      "improvement_over_deterministic": 0.0017564892768859863,
+      "better_than_deterministic": true
+    },
+    "posterior_sampling": {
+      "mean_loss": 65.08184814453125,
+      "std_loss": 7.968758187427125,
+      "min_loss": 56.758934020996094,
+      "max_loss": 75.07630157470703,
+      "num_samples": 5
+    },
+    "uncertainty": {
+      "avg_predictive_entropy": 1.7072701454162598,
+      "max_predictive_entropy": 2.041008710861206,
+      "min_predictive_entropy": 1.4287631511688232
+    }
+  }
+}
