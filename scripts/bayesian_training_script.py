@@ -8,6 +8,7 @@ import logging
 from pathlib import Path
 import numpy as np
 import torch
+import datetime
 
 # Add paths for importing utilities and models
 current_dir = Path.cwd()
@@ -23,8 +24,9 @@ from config import CONFIG, MODEL_PATH, META_PATH, DATA_DIR
 def setup_logging(log_dir: Path, sampler_type: str):
     """Setup logging to both file and console"""
     log_dir.mkdir(parents=True, exist_ok=True)
-    
-    log_file = log_dir / f"{sampler_type}_training.log"
+
+    ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    log_file = log_dir / f"{sampler_type}_training_{ts}.log"
     
     # Create formatter
     formatter = logging.Formatter(
@@ -56,7 +58,7 @@ def parse_args():
     parser = argparse.ArgumentParser(
         description='Train Bayesian NanoGPT with different inference methods'
     )
-    
+    # TODO: remove laplace option if not implemented
     parser.add_argument(
         '--sampler',
         type=str,

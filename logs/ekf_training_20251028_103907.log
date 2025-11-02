@@ -1,0 +1,55 @@
+2025-10-28 10:39:07 - root - INFO - ======================================================================
+2025-10-28 10:39:07 - root - INFO - BAYESIAN NANOGPT TRAINING
+2025-10-28 10:39:07 - root - INFO - ======================================================================
+2025-10-28 10:39:07 - root - INFO - Sampler: EKF
+2025-10-28 10:39:07 - root - INFO - Log file: logs/ekf_training_20251028_103907.log
+2025-10-28 10:39:07 - root - INFO - Using W&B: True
+2025-10-28 10:39:07 - root - INFO - ======================================================================
+2025-10-28 10:39:07 - root - INFO - Random seed set to: 42
+2025-10-28 10:39:07 - root - INFO - 
+======================================================================
+2025-10-28 10:39:07 - root - INFO - Loading pre-trained model...
+2025-10-28 10:39:07 - root - INFO - ======================================================================
+2025-10-28 10:39:07 - root - INFO - Model loaded successfully!
+2025-10-28 10:39:07 - root - INFO - Vocabulary size: 65
+2025-10-28 10:39:07 - root - INFO - 
+======================================================================
+2025-10-28 10:39:07 - root - INFO - Preparing training data...
+2025-10-28 10:39:07 - root - INFO - ======================================================================
+2025-10-28 10:39:07 - root - INFO - Created 625 training batches
+2025-10-28 10:39:07 - root - INFO - Batch shape: torch.Size([16, 128])
+2025-10-28 10:39:07 - root - INFO - Target shape: torch.Size([16, 1])
+2025-10-28 10:39:07 - root - INFO - Total training samples: 10000
+2025-10-28 10:39:07 - root - INFO - 
+======================================================================
+2025-10-28 10:39:07 - root - INFO - Starting Bayesian training pipeline...
+2025-10-28 10:39:07 - root - INFO - ======================================================================
+2025-10-28 10:39:07 - root - ERROR - 
+======================================================================
+2025-10-28 10:39:07 - root - ERROR - TRAINING FAILED!
+2025-10-28 10:39:07 - root - ERROR - ======================================================================
+2025-10-28 10:39:07 - root - ERROR - build() got an unexpected keyword argument 'log_posterior'
+Traceback (most recent call last):
+  File "/Users/sofianikolenko/Downloads/Projects_25/ADL/adl-bnn-textgen/scripts/bayesian_training_script.py", line 202, in main
+    state, metrics, eval_results = run_bayesian_pipeline(
+                                   ~~~~~~~~~~~~~~~~~~~~~^
+        training_batches,
+        ^^^^^^^^^^^^^^^^^
+        sampler_type=args.sampler,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^
+        use_wandb=not args.no_wandb
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/sofianikolenko/Downloads/Projects_25/ADL/adl-bnn-textgen/src/bayesian_utils.py", line 745, in run_bayesian_pipeline
+    transform, state = pipeline.setup_sampler(log_posterior_fn, params)
+                       ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/sofianikolenko/Downloads/Projects_25/ADL/adl-bnn-textgen/src/bayesian_utils.py", line 176, in setup_sampler
+    return self._setup_ekf(log_posterior_fn, params)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/sofianikolenko/Downloads/Projects_25/ADL/adl-bnn-textgen/src/bayesian_utils.py", line 217, in _setup_ekf
+    transform = posteriors.ekf.diag_fisher.build(
+        log_posterior=log_posterior_fn,
+        lr=self.config.get('learning_rate', 1e-3)
+    )
+TypeError: build() got an unexpected keyword argument 'log_posterior'

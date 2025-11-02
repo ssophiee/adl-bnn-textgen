@@ -8,6 +8,7 @@ import torchopt
 import datetime
 import numpy as np
 from torch import func
+import gc
 import posteriors
 import torch.nn.functional as F
 from pathlib import Path
@@ -55,36 +56,122 @@ def single_batch_loss(params, batch):
     return loss
 
 
-def log_posterior_fn(params, batch):    
-    try:
-        nll = single_batch_loss(params, batch)
-        print(f"NLL computed successfully: {nll}")
-    except Exception as e:
-        print(f"Error in single_batch_loss: {e}")
-        raise
+# def log_posterior_fn(params, batch):    
+#     try:
+#         nll = single_batch_loss(params, batch)
+#         print(f"NLL computed successfully: {nll}")
+#     except Exception as e:
+#         print(f"Error in single_batch_loss: {e}")
+#         raise
     
-    try:
-        # During the first iteration, INITIAL_PARAMS is the same as params
-        # so the log prior will be zero. This is expected.
+#     try:
+#         # During the first iteration, INITIAL_PARAMS is the same as params
+#         # so the log prior will be zero. This is expected.
         
-        log_prior = posteriors.diag_normal_log_prob(params, mean=INITIAL_PARAMS, sd_diag=CONFIG.get('prior_std', 0.01))
-        print(f"Log prior computed successfully: {log_prior}")
-    except Exception as e:
-        print(f"Error in diag_normal_log_prob: {e}")
-        raise
+#         log_prior = posteriors.diag_normal_log_prob(params, mean=INITIAL_PARAMS, sd_diag=CONFIG.get('prior_std', 0.01))
+#         print(f"Log prior computed successfully: {log_prior}")
+#     except Exception as e:
+#         print(f"Error in diag_normal_log_prob: {e}")
+#         raise
     
-    try:
-        num_data_tensor = torch.tensor(float(CONFIG['train_samples']), device=DEVICE, dtype=torch.float32)
-        beta = CONFIG.get('prior_beta', 1.0)
+#     try:
+#         num_data_tensor = torch.tensor(float(CONFIG['train_samples']), device=DEVICE, dtype=torch.float32)
+#         beta = CONFIG.get('prior_beta', 1.0)
 
-        # beta scales the influence of the prior (too strong because of the number of parameters)
-        log_posterior = -nll + beta * (log_prior / num_data_tensor) 
-        print(f"Log posterior computed successfully: {log_posterior}")
-        return log_posterior, {}
-    except Exception as e:
-        print(f"Error in final computation: {e}")
-        raise
+#         # beta scales the influence of the prior (too strong because of the number of parameters)
+#         log_posterior = -nll + beta * (log_prior / num_data_tensor) 
+#         print(f"Log posterior computed successfully: {log_posterior}")
+#         return log_posterior, {}
+#     except Exception as e:
+#         print(f"Error in final computation: {e}")
+#         raise
 
+def log_posterior_fn(params, batch):    
+    """
+    Compute log posterior for VI with character-based model.
+    
+    Each training sample is a sequence that predicts 1 next character.
+    """
+    x, y = batch  # x: (batch_size, seq_length), y: (batch_size, 1)
+    MODEL.eval()
+    # Compute negative log-likelihood for the batch
+    nll = single_batch_loss(params, batch)
+    
+    # Compute log prior
+    log_prior = posteriors.diag_normal_log_prob(
+        params, 
+        mean=INITIAL_PARAMS, 
+        sd_diag=CONFIG.get('prior_std', 0.01)
+    )
+    
+    # Number of predictions in this batch
+    batch_size = x.shape[0]  # Each sequence predicts 1 character
+    
+    # Total number of predictions in training set
+    total_samples = CONFIG['train_samples']  # Total sequences = total predictions
+    
+    # Scale likelihood to full dataset
+    # nll is mean loss per prediction in batch
+    log_likelihood = -nll * total_samples
+    
+    beta = CONFIG.get('prior_beta', 1.0 / total_samples)  # Default: scale by dataset size
+    log_posterior = log_likelihood + beta * log_prior
+
+    return log_posterior, {}
+
+# def log_likelihood_fn(params, batch):
+#     """
+#     Compute log-likelihood for a single batch.
+    
+#     Args:
+#         params: Model parameters
+#         batch: Tuple of (x, y) where x is input and y is target
+        
+#     Returns:
+#         log_likelihood: Scalar tensor (negative of the loss scaled by batch size)
+#         aux: Dictionary with auxiliary information
+#     """
+#     x, y = batch
+#     logits, aux_model = func.functional_call(MODEL, params, (x,))
+    
+#     batch_size, seq_length, vocab_size = logits.shape
+#     logits_flat = logits.view(-1, vocab_size)
+#     targets_flat = y.view(-1)
+    
+#     # Compute cross-entropy loss with reduction='sum'
+#     loss_sum = F.cross_entropy(logits_flat, targets_flat, reduction='sum')
+    
+#     # Convert to log-likelihood (negative loss)
+#     log_likelihood = -loss_sum
+    
+#     # Auxiliary info (can include whatever you need)
+#     aux = {
+#         'logits': logits,
+#         'model_aux': aux_model
+#     }
+    
+#     return log_likelihood, aux
+
+def log_likelihood_fn(params, batch):
+    """
+    Compute log-likelihood for a single batch.
+    """
+    x, y = batch
+    
+    # CRITICAL: Set model to eval mode to disable dropout
+    MODEL.eval()
+    
+    logits, aux_model = func.functional_call(MODEL, params, (x,))
+    
+    batch_size, seq_length, vocab_size = logits.shape
+    logits_flat = logits.view(-1, vocab_size)
+    targets_flat = y.view(-1)
+    
+    loss_sum = F.cross_entropy(logits_flat, targets_flat, reduction='sum')
+    log_likelihood = -loss_sum
+    
+    aux = {'logits': logits, 'model_aux': aux_model}
+    return log_likelihood, aux
 
 def evaluate_deterministic_model(model, test_batch):
     """
@@ -212,10 +299,10 @@ class BayesianSamplerPipeline:
         
         return transform, state
     
-    def _setup_ekf(self, log_posterior_fn, params):
+    def _setup_ekf(self, log_likelihood_fn, params):
         """Setup Extended Kalman Filter"""
         transform = posteriors.ekf.diag_fisher.build(
-            log_posterior=log_posterior_fn,
+            log_likelihood=log_likelihood_fn,
             lr=self.config.get('learning_rate', 1e-3)
         )
         
@@ -230,8 +317,8 @@ class BayesianSamplerPipeline:
     def _setup_laplace(self, log_posterior_fn, params):
         """Setup Laplace Approximation"""
         transform = posteriors.laplace.diag_fisher.build(
-            log_posterior=log_posterior_fn,
-            lr=self.config.get('learning_rate', 1e-3)
+            log_posterior=log_posterior_fn
+            # lr=self.config.get('learning_rate', 1e-3)
         )
         
         state = transform.init(params)
@@ -247,8 +334,12 @@ class BayesianSamplerPipeline:
         transform = posteriors.sgmcmc.sghmc.build(
             log_posterior=log_posterior_fn,
             lr=self.config.get('learning_rate', 1e-3),
-            alpha=self.config.get('sgmcmc_alpha', 0.01),
-            beta=self.config.get('sgmcmc_beta', 0.0)
+            alpha=self.config.get('sghmc_alpha', 0.01),      # Friction coefficient
+            beta=self.config.get('sghmc_beta', 0.0),         # Noise estimate (0 = no correction)
+            sigma=self.config.get('sghmc_sigma', 1.0),       # Prior std for momenta
+            temperature=self.config.get('temperature', 1.0),  # Posterior tempering
+            momenta=None  # Will be initialized automatically
+
         )
         
         state = transform.init(params)
@@ -287,18 +378,17 @@ class BayesianSamplerPipeline:
             
             for batch_idx, batch in enumerate(training_batches):
                 try:
+                    print(f"  Processing batch {batch_idx + 1}/{len(training_batches)}...")
                     state = transform.update(state, batch)
+                    print(f"  Batch processed successfully.")
 
-                    if self.sampler_type in ['vi', 'ekf']:
+                    if self.sampler_type in ['vi']:
                         # For VI and EKF, state contains log_sd_diag (std in log space)
                         max_log_scale = self.config.get('max_log_scale', -8)
                         # clamp log_scale (std is saved in log_scale in VI: log_scale = log(σ)) to prevent variance explosion
                         with torch.no_grad():
                             for k in state.log_sd_diag:
                                 state.log_sd_diag[k].clamp_(max=max_log_scale)
-
-                    # transform.update() returns (new_state, aux_data)
-                    state, aux = transform.update(state, batch)
                     
                     # Extract params from state (should be VIDiagState or similar named tuple)
                     current_params = state.params
@@ -326,9 +416,17 @@ class BayesianSamplerPipeline:
                         print(f"  [{batch_idx + 1:3d}/{len(training_batches)}] "
                               f"Loss: {recent_loss:.4f} | "
                               f"Log Post: {recent_log_post:.4f}")
+                    
+                    # TODO: Clear cache periodically
+                    if batch_idx % 10 == 0: 
+                        gc.collect()
+                        torch.cuda.empty_cache() if torch.cuda.is_available() else None
+                    del batch
+                        
                 
                 except Exception as e:
                     print(f"  ✗ Error in batch {batch_idx + 1}: {e}")
+                    gc.collect()
                     continue
             
             if epoch_losses:
@@ -514,21 +612,16 @@ class BayesianSamplerPipeline:
         
         # 4. Parameter uncertainty (if available)
         if hasattr(state, 'log_scale') or hasattr(state, 'log_sd_diag'):
-        if hasattr(state, 'log_scale') or hasattr(state, 'log_sd_diag'):
             print(f"\n4. Parameter Uncertainty:")
             total_params = 0
             total_std = 0
             
-            log_scale_attr = 'log_scale' if hasattr(state, 'log_scale') else 'log_sd_diag'
-            log_scale_dict = getattr(state, log_scale_attr)
-
             
             # Handle different naming conventions
             log_scale_attr = 'log_scale' if hasattr(state, 'log_scale') else 'log_sd_diag'
             log_scale_dict = getattr(state, log_scale_attr)
             
             for name in state.params:
-                param_std = torch.exp(log_scale_dict[name]).mean().item()
                 param_std = torch.exp(log_scale_dict[name]).mean().item()
                 param_count = state.params[name].numel()
                 
