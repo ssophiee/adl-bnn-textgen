@@ -13,9 +13,9 @@ import posteriors
 import torch.nn.functional as F
 from pathlib import Path
 from torch.optim.lr_scheduler import CosineAnnealingLR
-from config import DEVICE, CONFIG, MODEL_PATH, WANDB_AVAILABLE
+from config import DEVICE, CONFIG, MODEL_PATH, WANDB_AVAILABLE, CONFIG_EKF, CONFIG_SGMCMC
 from src.nanogpt_utils import load_model
-MODEL, checkpoint = load_model(Path(MODEL_PATH))
+MODEL, checkpoint = load_model(Path(MODEL_PATH), DEVICE) # TODO: pass device
 INITIAL_PARAMS = {k: v.clone().to(DEVICE) for k, v in MODEL.named_parameters()}
 
 def create_training_batches(data, batch_size, seq_length, num_samples):
@@ -833,9 +833,17 @@ def run_bayesian_pipeline(training_batches, sampler_type='vi', use_wandb=True):
     """
     params = {k: v.clone().to(DEVICE) for k, v in MODEL.named_parameters()}
 
+    # Select appropriate config
+    if sampler_type == 'vi':
+        config = CONFIG.copy()
+    elif sampler_type == 'ekf':
+        config = CONFIG_EKF.copy()
+    elif sampler_type == 'sgmcmc':
+        config = CONFIG_SGMCMC.copy()
+
     pipeline = BayesianSamplerPipeline(
         sampler_type=sampler_type,
-        config=CONFIG,
+        config=config,
         use_wandb=use_wandb
     )
     

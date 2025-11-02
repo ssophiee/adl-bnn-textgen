@@ -48,7 +48,7 @@ def load_model(model_path: Optional[Path] = None, device: str = 'cpu') -> Tuple[
         model_path = config.MODEL_PATH
         
     # Load checkpoint
-    checkpoint = torch.load(model_path, map_location='cpu')
+    checkpoint = torch.load(model_path, map_location=device)
     
     # Get model configuration
     model_args = checkpoint.get('model_args', {})

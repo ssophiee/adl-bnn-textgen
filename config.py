@@ -54,12 +54,19 @@ CONFIG = {
 
 CONFIG_EKF = {
     **CONFIG,
-    'learning_rate': 5e-6,  # EKF often needs smaller LR
-    'ekf_damping': 0.1,  # Damping factor for Fisher
+    'learning_rate': 5e-6, 
+    'ekf_damping': 0.1,  
 }
 
 CONFIG_LAPLACE = {
     **CONFIG,
-    'learning_rate': 1e-5,
-    'laplace_prior_precision': 100.0,  # Tight prior
+    'learning_rate': 1e-5
+}
+
+CONFIG_SGMCMC = {
+    **CONFIG,
+    'learning_rate': 1e-7,  #
+    'sghmc_alpha': 0.2,    
+    'sghmc_beta': 0.0,      
+    'temperature': 1.0,
 }

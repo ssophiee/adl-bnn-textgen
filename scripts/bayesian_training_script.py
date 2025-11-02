@@ -18,7 +18,7 @@ sys.path.append(str(current_dir.parent / "baselines"))
 
 from src.nanogpt_utils import load_model, load_tokenizer
 from src.bayesian_utils import create_training_batches, run_bayesian_pipeline
-from config import CONFIG, MODEL_PATH, META_PATH, DATA_DIR
+from config import CONFIG, MODEL_PATH, META_PATH, DATA_DIR, CONFIG_SGMCMC, CONFIG_EKF
 
 
 def setup_logging(log_dir: Path, sampler_type: str):
@@ -146,8 +146,13 @@ def main():
     set_seed(args.seed)
     logger.info(f"Random seed set to: {args.seed}")
     
-    # Override config if command line args provided
-    config = CONFIG.copy()
+    if args.sampler == 'vi':
+        config = CONFIG.copy()
+    elif args.sampler == 'ekf':
+        config = CONFIG_EKF.copy()
+    elif args.sampler == 'sgmcmc':
+        config = CONFIG_SGMCMC.copy()
+
     if args.epochs:
         config['num_epochs'] = args.epochs
         logger.info(f"Overriding epochs: {args.epochs}")
