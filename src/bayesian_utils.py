@@ -265,6 +265,8 @@ class BayesianSamplerPipeline:
             return self._setup_laplace(log_posterior_fn, params)
         elif self.sampler_type == 'sgmcmc':
             return self._setup_sgmcmc(log_posterior_fn, params)
+        elif self.sampler_type == 'sgld':
+            return self._setup_sgld(log_posterior_fn, params)
     
     def _setup_vi(self, log_posterior_fn, params):
         """Setup Variational Inference (Diagonal Gaussian)"""
@@ -350,7 +352,26 @@ class BayesianSamplerPipeline:
         print(f"- Beta (noise coefficient): {self.config.get('sgmcmc_beta', 0.0)}")
         
         return transform, state
-    
+
+    def _setup_sgld(self, log_posterior_fn, params):
+        """Setup Stochastic Gradient Langevin Dynamics (SGLD)"""
+        
+        transform = posteriors.sgmcmc.sgld.build(
+            log_posterior=log_posterior_fn,
+            lr=self.config.get('learning_rate', 1e-6),
+            beta=self.config.get('sgld_beta', 0.0),        # Gradient noise correction
+            temperature=self.config.get('temperature', 1.0)
+        )
+        
+        state = transform.init(params)
+        
+        print(f"SGLD configured with:")
+        print(f"- Learning rate: {self.config.get('learning_rate', 1e-6)}")
+        print(f"- Beta (noise correction): {self.config.get('sgld_beta', 0.0)}")
+        print(f"- Temperature: {self.config.get('temperature', 1.0)}")
+        
+        return transform, state
+
     def run_training(self, transform, state, training_batches, 
                      single_batch_loss, log_posterior_fn):
         """Run Bayesian training with the configured sampler and W&B tracking"""
@@ -365,6 +386,12 @@ class BayesianSamplerPipeline:
         print(f"  - Total iterations: {self.config['num_epochs'] * len(training_batches)}")
         print(f"{'='*60}\n")
         
+        # For SGMCMC: collect samples during training
+        if self.sampler_type == 'sgmcmc':
+            collected_samples = []
+            burn_in_epochs = self.config.get('sgmcmc_burnin_epochs', 5)
+            sample_every_n_batches = self.config.get('sgmcmc_thinning', 10)
+
         start_time = datetime.datetime.now()
         global_step = 0
         
@@ -381,6 +408,12 @@ class BayesianSamplerPipeline:
                     print(f"  Processing batch {batch_idx + 1}/{len(training_batches)}...")
                     state = transform.update(state, batch)
                     print(f"  Batch processed successfully.")
+
+                    if self.sampler_type == 'sgmcmc':
+                        if epoch >= burn_in_epochs and batch_idx % sample_every_n_batches == 0:
+                            # Store a copy of current params as a sample
+                            sample = {k: v.clone().detach() for k, v in state.params.items()}
+                            collected_samples.append(sample)
 
                     if self.sampler_type in ['vi']:
                         # For VI and EKF, state contains log_sd_diag (std in log space)
@@ -477,6 +510,17 @@ class BayesianSamplerPipeline:
             wandb.summary['final_log_posterior'] = self.metrics['log_posterior_values'][-1]
             wandb.summary['total_training_time'] = total_time
         
+        # TODO: check if collected_samples correctly returned
+        if self.sampler_type == 'sgmcmc':
+            # Move samples back to device for evaluation
+            collected_samples_device = []
+            for sample in collected_samples:
+                sample_device = {k: v.to(DEVICE) for k, v in sample.items()}
+                collected_samples_device.append(sample_device)
+            
+            state.collected_samples = collected_samples_device
+            print(f"\n✓ Collected {len(collected_samples_device)} SGMCMC samples total")
+
         return state, self.metrics
     
     def _extract_sampler_metrics(self, state, epoch):
@@ -562,24 +606,39 @@ class BayesianSamplerPipeline:
         sample_losses = []
         posterior_samples = []
         
-        for i in range(num_samples):
-            if self.sampler_type == 'vi':
-                sample_params = posteriors.vi.diag.sample(state)
-            elif self.sampler_type == 'ekf':
-                sample_params = posteriors.ekf.diag_fisher.sample(state)
-            elif self.sampler_type == 'laplace':
-                sample_params = posteriors.laplace.diag_fisher.sample(state)
-            elif self.sampler_type == 'sgmcmc':
-                sample_params = state.params if hasattr(state, 'params') else current_params
+        if self.sampler_type == 'sgmcmc':
+            if hasattr(state, 'collected_samples') and len(state.collected_samples) > 0:
+                # Use last N samples from training
+                samples_to_use = state.collected_samples[-num_samples:]
+                
+                for sample_params in samples_to_use:
+                    with torch.no_grad():
+                        sample_logits, _ = func.functional_call(model, sample_params, (x_test,))
+                        sample_loss = F.cross_entropy(...)
+                        sample_losses.append(sample_loss.item())
+                        posterior_samples.append(sample_logits)
+            else:
+                print("No SGMCMC samples collected, using final params only")
+                # Fallback to just using final params
+                sample_params = state.params
+        
+        else:
+            for i in range(num_samples):
+                if self.sampler_type == 'vi':
+                    sample_params = posteriors.vi.diag.sample(state)
+                elif self.sampler_type == 'ekf':
+                    sample_params = posteriors.ekf.diag_fisher.sample(state)
+                elif self.sampler_type == 'laplace':
+                    sample_params = posteriors.laplace.diag_fisher.sample(state)
             
-            with torch.no_grad():
-                sample_logits, _ = func.functional_call(model, sample_params, (x_test,))
-                sample_loss = F.cross_entropy(
-                    sample_logits.view(-1, sample_logits.size(-1)),
-                    y_test.view(-1)
-                )
-                sample_losses.append(sample_loss.item())
-                posterior_samples.append(sample_logits)
+                with torch.no_grad():
+                    sample_logits, _ = func.functional_call(model, sample_params, (x_test,))
+                    sample_loss = F.cross_entropy(
+                        sample_logits.view(-1, sample_logits.size(-1)),
+                        y_test.view(-1)
+                    )
+                    sample_losses.append(sample_loss.item())
+                    posterior_samples.append(sample_logits)
         
         results['posterior_sampling'] = {
             'mean_loss': np.mean(sample_losses),
