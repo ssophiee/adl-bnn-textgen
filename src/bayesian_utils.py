@@ -517,11 +517,12 @@ class BayesianSamplerPipeline:
             for sample in self.collected_samples:
                 sample_device = {k: v.to(DEVICE) for k, v in sample.items()}
                 collected_samples_device.append(sample_device)
-            
+
             self.collected_samples = collected_samples_device
             print(f"\n✓ Collected {len(collected_samples_device)} SGMCMC samples total")
+            return state, self.metrics, self.collected_samples
 
-        return state, self.metrics
+        return state, self.metrics, None
     
     def _extract_sampler_metrics(self, state, epoch):
         """Extract sampler-specific metrics from state"""
@@ -543,7 +544,7 @@ class BayesianSamplerPipeline:
         
         return metrics
     
-    def evaluate_predictions(self, state, model, test_batch, num_samples=5):
+    def evaluate_predictions(self, state, model, test_batch, num_samples=5, collected_samples=None):
         """
         Evaluate model predictions with uncertainty quantification, W&B logging,
         and comparison against deterministic model
@@ -607,9 +608,9 @@ class BayesianSamplerPipeline:
         posterior_samples = []
         
         if self.sampler_type == 'sgmcmc':
-            if len(self.collected_samples) > 0:
+            if collected_samples is not None:
                 # Use last N samples from training
-                samples_to_use = self.collected_samples[-num_samples:]
+                samples_to_use = collected_samples[-num_samples:]
                 
                 for sample_params in samples_to_use:
                     with torch.no_grad():
@@ -911,14 +912,14 @@ def run_bayesian_pipeline(training_batches, sampler_type='vi', use_wandb=True):
     
     try:
         transform, state = pipeline.setup_sampler(log_posterior_fn, params)
-        state, metrics = pipeline.run_training(
+        state, metrics, collected_samples = pipeline.run_training(
             transform, state, training_batches,
             single_batch_loss, log_posterior_fn
         )
         
         # Pass the model for deterministic comparison
         eval_results = pipeline.evaluate_predictions(
-            state, MODEL, training_batches[0], num_samples=5
+            state, MODEL, training_batches[0], num_samples=5, collected_samples=collected_samples
         )
         
         save_dir = pipeline.save_model(state, MODEL, eval_results)
