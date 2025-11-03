@@ -222,6 +222,7 @@ class BayesianSamplerPipeline:
         self.config = config
         self.use_wandb = use_wandb and WANDB_AVAILABLE
         self.wandb_run = None
+        self.collected_samples = []  # For SGMCMC samples
         
         self.metrics = {
             'training_losses': [],
@@ -388,7 +389,6 @@ class BayesianSamplerPipeline:
         
         # For SGMCMC: collect samples during training
         if self.sampler_type == 'sgmcmc':
-            collected_samples = []
             burn_in_epochs = self.config.get('sgmcmc_burnin_epochs', 5)
             sample_every_n_batches = self.config.get('sgmcmc_thinning', 10)
 
@@ -413,7 +413,7 @@ class BayesianSamplerPipeline:
                         if epoch >= burn_in_epochs and batch_idx % sample_every_n_batches == 0:
                             # Store a copy of current params as a sample
                             sample = {k: v.clone().detach() for k, v in state.params.items()}
-                            collected_samples.append(sample)
+                            self.collected_samples.append(sample)
 
                     if self.sampler_type in ['vi']:
                         # For VI and EKF, state contains log_sd_diag (std in log space)
@@ -514,11 +514,11 @@ class BayesianSamplerPipeline:
         if self.sampler_type == 'sgmcmc':
             # Move samples back to device for evaluation
             collected_samples_device = []
-            for sample in collected_samples:
+            for sample in self.collected_samples:
                 sample_device = {k: v.to(DEVICE) for k, v in sample.items()}
                 collected_samples_device.append(sample_device)
             
-            state.collected_samples = collected_samples_device
+            self.collected_samples = collected_samples_device
             print(f"\n✓ Collected {len(collected_samples_device)} SGMCMC samples total")
 
         return state, self.metrics
@@ -607,14 +607,17 @@ class BayesianSamplerPipeline:
         posterior_samples = []
         
         if self.sampler_type == 'sgmcmc':
-            if hasattr(state, 'collected_samples') and len(state.collected_samples) > 0:
+            if len(self.collected_samples) > 0:
                 # Use last N samples from training
-                samples_to_use = state.collected_samples[-num_samples:]
+                samples_to_use = self.collected_samples[-num_samples:]
                 
                 for sample_params in samples_to_use:
                     with torch.no_grad():
                         sample_logits, _ = func.functional_call(model, sample_params, (x_test,))
-                        sample_loss = F.cross_entropy(...)
+                        sample_loss = F.cross_entropy(
+                            sample_logits.view(-1, sample_logits.size(-1)),
+                            y_test.view(-1)
+                        )
                         sample_losses.append(sample_loss.item())
                         posterior_samples.append(sample_logits)
             else:
