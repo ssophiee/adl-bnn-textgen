@@ -1,103 +1,57 @@
-# Copilot Instructions for Bayesian Neural Networks Text Generation (adl-bnn-textgen)
+# Copilot Instructions (adl-bnn-textgen)
 
-## Project Overview
-This project implements **Bayesian Neural Networks (BNNs)** for text generation using the `posteriors` library for variational inference on NanoGPT models. The goal is to quantify uncertainty in language model predictions through Bayesian approaches.
+Purpose: Fast orientation for AI coding agents working on Bayesian extensions of NanoGPT with the `posteriors` library.
 
-## Architecture
-- **Baseline Models**: Standard NanoGPT implementations in `baselines/nanogpt/`
-- **Bayesian Inference**: Uses `posteriors` library for variational inference (VI) with diagonal Gaussian approximations
-- **Model Checkpoints**: Pre-trained models stored in `checkpoints/` with corresponding metadata
-- **Notebooks**: Jupyter notebooks for training, inference, and evaluation workflows
+Core Architecture:
+- Deterministic NanoGPT in `baselines/nanogpt/model.py` (character-level, weight tying, block size enforcement).
+- Bayesian layer is external: we never wrap the model; we operate on param dicts via `torch.func.functional_call`.
+- Global params & sampler configs live in `config.py` (env-driven: `MODEL_PATH`, `META_PATH`, `DATA_DIR`). Override via `.env` rather than hardcoding.
 
-## Key Components
+Primary Workflow (scripts):
+1. Load checkpoint + tokenizer: `load_model(MODEL_PATH)`, `load_tokenizer(META_PATH)`.
+2. Build random next-character batches with `create_training_batches(...)` (each sequence predicts 1 next char).
+3. Select sampler: `vi`, `ekf`, `sgmcmc` (laplace placeholder). Pipeline in `src/bayesian_utils.BayesianSamplerPipeline`.
+4. Train: loop calls `transform.update(state, batch)`; for VI clamp `state.log_sd_diag[...]` to `max_log_scale` to prevent variance blow-up.
+5. Evaluate: deterministic vs posterior mean vs sampled posterior (`evaluate_predictions`). Tracks loss, perplexity, predictive entropy.
+6. Save artifacts to `checkpoints/samplers/{sampler}_sampler/run_TIMESTAMP/` (model, metrics JSON, summary text).
 
-### Configuration System
-- Central configuration in `config.py` with hardcoded paths to checkpoints and datasets
-- Model paths: `MODEL_PATH`, `META_PATH`, `CONFIG_PATH`, `DATASET_PATH`
-- Device handling: `DEVICE = "cuda" if __name__ == "__main__" else "cpu"`
+Sampler Differences:
+- VI: `posteriors.vi.diag.build(...); sample via posteriors.vi.diag.sample(state)`.
+- EKF: `posteriors.ekf.diag_fisher.build` (uses Fisher diag, samples via ekf module).
+- SGMCMC: collects thinning samples into `state.collected_samples`; evaluate last N; no explicit variance params.
 
-### Model Structure
-- Based on Karpathy's NanoGPT with standard GPT architecture (CausalSelfAttention, LayerNorm, etc.)
-- Model configs stored as YAML files in `baselines/nanogpt/shakespeare-char/config.yaml`
-- Character-level tokenization using pickle files (`meta.pkl`) with `stoi`/`itos` mappings
-
-### Bayesian Inference Workflow
-1. **Load baseline model** from checkpoint (`.pt` files)
-2. **Extract parameters** using `dict(model.named_parameters())`
-3. **Define log_posterior function** combining negative log-likelihood + log prior
-4. **Build VI transform** using `posteriors.vi.diag.build()` with Adam optimizer
-5. **Train posterior** through `vi_transform.update()` iterations
-6. **Sample parameters** using `posteriors.vi.diag.sample(vi_state)`
-
-### Data Handling
-- Shakespeare character data loaded as binary `.bin` files using `np.memmap`
-- Batch creation through random sampling of sequences
-- Standard sequence length: 128-256 tokens
-- Training data path pattern: `nanoGPT/data/shakespeare_char/train.bin`
-
-## Development Workflows
-
-### Training New Models
-1. Use Google Colab notebook (`nanogpt_training_colab.ipynb`) for GPU training
-2. Copy trained checkpoint to `checkpoints/baseline_nanogpt/`
-3. Rename `ckpt.pt` to `baseline_nanogpt.pt`
-4. Copy `meta.pkl` from data directory
-
-### Bayesian Inference
-1. Use `nanogpt_bayesian_inference.ipynb` as main workflow
-2. Configure paths in CONFIG dictionary at notebook start
-3. Use `func.functional_call(model, params, (x,))` for parameter sampling
-4. Monitor VI training through loss tracking and log posterior values
-
-### Text Generation
-- **Deterministic**: Standard model forward pass
-- **Bayesian**: Sample multiple parameter sets, generate with each, analyze diversity
-- Temperature control for both inference (`temperature` in VI) and generation (`generation_temperature`)
-
-### Evaluation
-- Use notebooks in `notebooks/` for model evaluation
-- BLEU scores using SacreBLEU (documented in `docs/evaluation_metrics.md`)
-- Uncertainty quantification through prediction variance across posterior samples
-
-## Critical Dependencies
-- **posteriors**: Core Bayesian inference library
-- **torchopt**: Optimizers for variational inference  
-- **optree**: Tree operations (used by posteriors)
-- **torch.func**: Required for `functional_call` with sampled parameters
-
-## Common Patterns
-
-### Parameter Sampling Pattern
+Log Posterior Pattern (character-level): scale likelihood to full dataset size, prior tempered by `prior_beta`:
 ```python
-# Sample from posterior
-sampled_params = posteriors.vi.diag.sample(vi_state)
-
-# Use with functional call
-logits, _ = func.functional_call(model, sampled_params, (x,))
+log_prior = posteriors.diag_normal_log_prob(params, mean=INITIAL_PARAMS, sd_diag=CONFIG['prior_std'])
+log_likelihood = -nll * CONFIG['train_samples']
+log_posterior = log_likelihood + CONFIG['prior_beta'] * log_prior
 ```
 
-### Log Posterior Definition
-```python
-def log_posterior_fn(params, batch):
-    nll = single_batch_loss(params, batch)  # Negative log-likelihood
-    log_prior = sum(Normal(0, prior_std).log_prob(p).sum() for p in params.values())
-    return -nll + log_prior / num_data  # Scale prior by data size
+Generation:
+- Deterministic: `model(x_cond)`; Bayesian: sample params then `func.functional_call(model, sampled, (x,))`.
+- Always crop to `model.config.block_size` before forward to avoid assert.
+
+Uncertainty Metrics:
+- Predictive entropy computed over stacked softmax of sampled logits.
+- Parameter std (VI/EKF) from `exp(log_sd_diag)` averaged across tensors.
+
+Training Entry Point:
+```bash
+python scripts\bayesian_training_script.py --sampler vi --epochs 10 --train-samples 2000
 ```
+Use `--no-wandb` if WANDB_AVAILABLE false. On Windows activate env: `bnn\Scripts\activate.bat`.
 
-### Virtual Environment
-- Python environment located in `bnn/` directory
-- Activate with `bnn\Scripts\activate.bat` on Windows
-- Install packages using pip within this environment
+Conventions & Pitfalls:
+- Always use `functional_call` with sampled params (do not mutate `model` weights in place).
+- Clamp VI log std to avoid exploding predictive entropy.
+- Each batch predicts exactly one next char; scaling must reflect total sequence count (`train_samples`).
+- For SGMCMC ensure burn-in (`sgmcmc_burnin_epochs`) and thinning (`sgmcmc_thinning`) config keys before relying on collected samples.
 
-## File Naming Conventions
-- Checkpoints: `{model_type}_{training_details}.pt` (e.g., `baseline_nanogpt.pt`)
-- Metadata: `{model_type}_meta.pkl` 
-- Configs: `config.yaml` with wandb integration details
-- Notebooks: Descriptive names with underscores (e.g., `nanogpt_bayesian_inference.ipynb`)
+Extend Safely:
+- Add new sampler by implementing `_setup_<name>` returning (transform, state) mirroring existing ones and update `AVAILABLE_SAMPLERS`.
+- Keep saved state structure: params, sampler aux, metrics JSON.
 
-## Gotchas
-- Always use `func.functional_call()` instead of direct model calls when working with sampled parameters
-- Path handling: Use absolute paths from `config.py` constants
-- Device consistency: Ensure tensors and model are on same device (CPU/CUDA)
-- Sequence length limits: Crop sequences to `model.config.block_size` to avoid memory issues
-- Prior scaling: Always scale log prior by `1/num_data` for proper Bayesian inference
+Immediate References:
+`scripts/bayesian_training_script.py`, `src/bayesian_utils.py`, `src/nanogpt_utils.py`, `baselines/nanogpt/model.py`.
+
+Ask for clarification if modifying prior scaling or adding sequence-level objectives.

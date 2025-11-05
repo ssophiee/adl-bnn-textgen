@@ -9,16 +9,31 @@ from pathlib import Path
 import numpy as np
 import torch
 import datetime
+import json
 
-# Add paths for importing utilities and models
+# Ensure project root and relevant subdirs are on sys.path BEFORE imports
 current_dir = Path.cwd()
-sys.path.append(str(current_dir))
-sys.path.append(str(current_dir.parent))
-sys.path.append(str(current_dir.parent / "baselines"))
+project_root = current_dir if (current_dir / 'src').exists() else current_dir.parent
+paths_to_add = [
+    project_root,
+    project_root / 'src',
+    project_root / 'baselines',
+]
+for p in paths_to_add:
+    sp = str(p)
+    if sp not in sys.path:
+        sys.path.append(sp)
 
+# Module imports (now safe)
 from src.nanogpt_utils import load_model, load_tokenizer
 from src.bayesian_utils import create_training_batches, run_bayesian_pipeline
 from config import CONFIG, MODEL_PATH, META_PATH, DATA_DIR, CONFIG_SGMCMC, CONFIG_EKF
+from src.evaluation.nanogpt_evaluator import NanoGPTEvaluator, evaluate_splits
+
+"""Bayesian NanoGPT training script with optional external evaluation.
+Usage example:
+    python scripts/bayesian_training_script.py --sampler vi --epochs 2 --eval --eval-splits val train
+"""
 
 
 def setup_logging(log_dir: Path, sampler_type: str):
@@ -114,6 +129,49 @@ def parse_args():
         default=42,
         help='Random seed for reproducibility'
     )
+
+    # Evaluation options
+    parser.add_argument(
+        '--eval',
+        action='store_true',
+        help='Run evaluation after training'
+    )
+    parser.add_argument(
+        '--eval-splits',
+        nargs='*',
+        default=['val','train'],
+        help='Dataset splits to evaluate'
+    )
+    parser.add_argument(
+        '--eval-max-samples',
+        type=int,
+        default=200,
+        help='Max samples (controls perplexity batch iterations)'
+    )
+    parser.add_argument(
+        '--eval-num-text-samples',
+        type=int,
+        default=20,
+        help='Number of text samples for BLEU/ROUGE'
+    )
+    parser.add_argument(
+        '--eval-prompt-length',
+        type=int,
+        default=20,
+        help='Prompt length for generation'
+    )
+    parser.add_argument(
+        '--eval-generation-length',
+        type=int,
+        default=30,
+        help='Generation length'
+    )
+    parser.add_argument(
+        '--eval-max-tokens',
+        type=int,
+        default=None,
+        help='Optional cap on tokens loaded from each split (fast debug)'
+    )
     
     return parser.parse_args()
 
@@ -175,8 +233,7 @@ def main():
         model, checkpoint = load_model(Path(MODEL_PATH))
         stoi, itos = load_tokenizer(Path(META_PATH))
         vocab_size = len(itos)
-        
-        logger.info(f"Model loaded successfully!")
+        logger.info("Model loaded successfully!")
         logger.info(f"Vocabulary size: {vocab_size}")
         
         # Prepare training data
@@ -220,11 +277,53 @@ def main():
             logger.info(f"Final Log Posterior: {metrics['log_posterior_values'][-1]:.4f}")
         
         if eval_results and 'posterior_mean' in eval_results:
-            logger.info(f"\nEvaluation Results:")
+            logger.info("\nEvaluation Results:")
             logger.info(f"  Deterministic Loss: {eval_results['deterministic']['loss']:.4f}")
             logger.info(f"  Bayesian Loss: {eval_results['posterior_mean']['loss']:.4f}")
             logger.info(f"  Improvement: {eval_results['posterior_mean']['improvement_over_deterministic']:+.4f}")
             logger.info(f"  Better than deterministic: {eval_results['posterior_mean']['better_than_deterministic']}")
+
+        # Optional external evaluation using NanoGPTEvaluator
+        if args.eval:
+            logger.info("\n" + "="*70)
+            logger.info("Running external evaluation (NanoGPTEvaluator)...")
+            logger.info("="*70)
+            try:
+                eval_cfg = {
+                    'data_dir': str(DATA_DIR),
+                    'model_path': str(MODEL_PATH),
+                    'meta_path': str(META_PATH),
+                    'splits': args.eval_splits,
+                    'device': 'auto',
+                    'batch_size': config['batch_size'],
+                    'max_eval_samples': args.eval_max_samples,
+                    'num_text_samples': args.eval_num_text_samples,
+                    'prompt_length': args.eval_prompt_length,
+                    'generation_length': args.eval_generation_length,
+                    'max_tokens': args.eval_max_tokens,
+                }
+                evaluator = NanoGPTEvaluator(eval_cfg['model_path'], eval_cfg['meta_path'], eval_cfg['device'])
+                split_results = evaluate_splits(evaluator, eval_cfg)
+                for split, res in split_results.items():
+                    if 'error' in res:
+                        logger.error(f"[{split}] Evaluation error: {res['error']}")
+                    else:
+                        logger.info(f"[{split}] tokens={res.get('total_tokens')} ppl={res.get('perplexity'):.4f} bleu={res.get('bleu',0.0):.4f} rouge1={res.get('rouge1',0.0):.4f}")
+                # Persist evaluation JSON
+                out_dir = Path('checkpoints') / 'samplers' / f"{args.sampler}_sampler"
+                out_dir.mkdir(parents=True, exist_ok=True)
+                ts_eval = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+                out_file = out_dir / f"external_eval_{ts_eval}.json"
+                payload = {
+                    'config': eval_cfg,
+                    'results': split_results,
+                    'vocab_size': evaluator.vocab_size,
+                }
+                with open(out_file, 'w') as f:
+                    json.dump(payload, f, indent=2)
+                logger.info(f"External evaluation saved to: {out_file}")
+            except Exception:
+                logger.exception("External evaluation failed")
         
         logger.info("="*70)
         logger.info(f"Log file saved to: {log_file}")

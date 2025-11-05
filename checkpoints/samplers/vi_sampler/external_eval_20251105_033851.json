@@ -1,0 +1,69 @@
+{
+  "config": {
+    "data_dir": "data",
+    "model_path": "checkpoints\\baseline_nanogpt\\baseline_nanogpt.pt",
+    "meta_path": "checkpoints\\baseline_nanogpt\\meta.pkl",
+    "splits": [
+      "val",
+      "train"
+    ],
+    "device": "auto",
+    "batch_size": 16,
+    "max_eval_samples": 200,
+    "num_text_samples": 20,
+    "prompt_length": 20,
+    "generation_length": 30,
+    "max_tokens": null
+  },
+  "results": {
+    "val": {
+      "split": "val",
+      "total_tokens": 111540,
+      "perplexity": 139.94976602991423,
+      "bleu": 0.08153705463757487,
+      "rouge1": 0.5491044274918742,
+      "rouge2": 0.1469944551818418,
+      "rougeL": 0.32290406759153867,
+      "examples": [
+        {
+          "reference": "me; I had peopled else\nThis i",
+          "generated": "thee to be so her life\nAnd in"
+        },
+        {
+          "reference": "of water swear against it\nAnd",
+          "generated": "of all this power,\nAnd make th"
+        },
+        {
+          "reference": "re, that o'er his wave-worn ba",
+          "generated": "uld and ever where you that so"
+        }
+      ],
+      "elapsed_seconds": 100.55
+    },
+    "train": {
+      "split": "train",
+      "total_tokens": 1003854,
+      "perplexity": 168.6694606343905,
+      "bleu": 0.08319198694979531,
+      "rouge1": 0.5621537881817342,
+      "rouge2": 0.17029660750622638,
+      "rougeL": 0.3371982630451055,
+      "examples": [
+        {
+          "reference": ":\nGood my lord, be good to me;",
+          "generated": ":\nWhy, farewell.\n\nSICINIUS:\nI"
+        },
+        {
+          "reference": "urs could win me: so it should",
+          "generated": "u have have churches\nAgainst i"
+        },
+        {
+          "reference": "Where one on his side fights,",
+          "generated": "And, brief what is they do, c"
+        }
+      ],
+      "elapsed_seconds": 86.21
+    }
+  },
+  "vocab_size": 65
+}

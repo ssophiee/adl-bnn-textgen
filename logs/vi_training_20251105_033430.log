@@ -1,0 +1,217 @@
+2025-11-05 03:34:30 - root - INFO - ======================================================================
+2025-11-05 03:34:30 - root - INFO - BAYESIAN NANOGPT TRAINING
+2025-11-05 03:34:30 - root - INFO - ======================================================================
+2025-11-05 03:34:30 - root - INFO - Sampler: VI
+2025-11-05 03:34:30 - root - INFO - Log file: logs\vi_training_20251105_033430.log
+2025-11-05 03:34:30 - root - INFO - Using W&B: False
+2025-11-05 03:34:30 - root - INFO - ======================================================================
+2025-11-05 03:34:30 - root - INFO - Random seed set to: 42
+2025-11-05 03:34:30 - root - INFO - Overriding epochs: 1
+2025-11-05 03:34:30 - root - INFO - Overriding train_samples: 20
+2025-11-05 03:34:30 - root - INFO - 
+======================================================================
+2025-11-05 03:34:30 - root - INFO - Loading pre-trained model...
+2025-11-05 03:34:30 - root - INFO - ======================================================================
+2025-11-05 03:34:30 - root - INFO - Model loaded successfully!
+2025-11-05 03:34:30 - root - INFO - Vocabulary size: 65
+2025-11-05 03:34:30 - root - INFO - 
+======================================================================
+2025-11-05 03:34:30 - root - INFO - Preparing training data...
+2025-11-05 03:34:30 - root - INFO - ======================================================================
+2025-11-05 03:34:30 - root - INFO - Created 2 training batches
+2025-11-05 03:34:30 - root - INFO - Batch shape: torch.Size([16, 128])
+2025-11-05 03:34:30 - root - INFO - Target shape: torch.Size([16, 1])
+2025-11-05 03:34:30 - root - INFO - Total training samples: 20
+2025-11-05 03:34:30 - root - INFO - 
+======================================================================
+2025-11-05 03:34:30 - root - INFO - Starting Bayesian training pipeline...
+2025-11-05 03:34:30 - root - INFO - ======================================================================
+2025-11-05 03:35:36 - root - INFO - 
+======================================================================
+2025-11-05 03:35:36 - root - INFO - TRAINING COMPLETED SUCCESSFULLY!
+2025-11-05 03:35:36 - root - INFO - ======================================================================
+2025-11-05 03:35:36 - root - INFO - Final Training Loss: 0.0732
+2025-11-05 03:35:36 - root - INFO - Final Log Posterior: -5669.0979
+2025-11-05 03:35:36 - root - INFO - 
+Evaluation Results:
+2025-11-05 03:35:36 - root - INFO -   Deterministic Loss: 0.6914
+2025-11-05 03:35:36 - root - INFO -   Bayesian Loss: 0.1291
+2025-11-05 03:35:36 - root - INFO -   Improvement: +0.5623
+2025-11-05 03:35:36 - root - INFO -   Better than deterministic: True
+2025-11-05 03:35:36 - root - INFO - 
+======================================================================
+2025-11-05 03:35:36 - root - INFO - Running external evaluation (NanoGPTEvaluator)...
+2025-11-05 03:35:36 - root - INFO - ======================================================================
+2025-11-05 03:35:36 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): s3.amazonaws.com:443
+2025-11-05 03:35:37 - urllib3.connectionpool - DEBUG - https://s3.amazonaws.com:443 "HEAD /datasets.huggingface.co/datasets/metrics/evaluate-metric/bleu/evaluate-metric/bleu.py HTTP/1.1" 404 0
+2025-11-05 03:35:37 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): huggingface.co:443
+2025-11-05 03:35:38 - urllib3.connectionpool - DEBUG - https://huggingface.co:443 "HEAD /spaces/evaluate-metric/bleu/resolve/v0.4.5/bleu.py HTTP/1.1" 404 0
+2025-11-05 03:35:38 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): huggingface.co:443
+2025-11-05 03:35:38 - urllib3.connectionpool - DEBUG - https://huggingface.co:443 "HEAD /spaces/evaluate-metric/bleu/resolve/main/bleu.py HTTP/1.1" 307 0
+2025-11-05 03:35:38 - urllib3.connectionpool - DEBUG - https://huggingface.co:443 "HEAD /api/resolve-cache/spaces/evaluate-metric/bleu/30fb504a0cd300652c25d9a95f034cdacbdd2586/bleu.py?%2Fspaces%2Fevaluate-metric%2Fbleu%2Fresolve%2Fmain%2Fbleu.py=&etag=%2238a10c3b34ee7dc24540fe8ece482e26f9cf3588%22 HTTP/1.1" 200 0
+2025-11-05 03:35:38 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): github.com:443
+2025-11-05 03:35:39 - urllib3.connectionpool - DEBUG - https://github.com:443 "HEAD /tensorflow/nmt/raw/master/nmt/scripts/bleu.py HTTP/1.1" 302 0
+2025-11-05 03:35:39 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): raw.githubusercontent.com:443
+2025-11-05 03:35:39 - urllib3.connectionpool - DEBUG - https://raw.githubusercontent.com:443 "HEAD /tensorflow/nmt/master/nmt/scripts/bleu.py HTTP/1.1" 200 0
+2025-11-05 03:35:39 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): huggingface.co:443
+2025-11-05 03:35:40 - urllib3.connectionpool - DEBUG - https://huggingface.co:443 "HEAD /spaces/evaluate-metric/bleu/resolve/main/tokenizer_13a.py HTTP/1.1" 307 0
+2025-11-05 03:35:40 - urllib3.connectionpool - DEBUG - https://huggingface.co:443 "HEAD /api/resolve-cache/spaces/evaluate-metric/bleu/30fb504a0cd300652c25d9a95f034cdacbdd2586/tokenizer_13a.py?%2Fspaces%2Fevaluate-metric%2Fbleu%2Fresolve%2Fmain%2Ftokenizer_13a.py=&etag=%22c7a1b3dbd39d7db5ed0c4d000d6d648e2cbf0009%22 HTTP/1.1" 200 0
+2025-11-05 03:35:40 - filelock - DEBUG - Attempting to acquire lock 2585387215888 on C:\Users\hayk_\.cache\huggingface\modules\evaluate_modules\metrics\evaluate-metric--bleu.lock
+2025-11-05 03:35:40 - filelock - DEBUG - Lock 2585387215888 acquired on C:\Users\hayk_\.cache\huggingface\modules\evaluate_modules\metrics\evaluate-metric--bleu.lock
+2025-11-05 03:35:40 - filelock - DEBUG - Attempting to release lock 2585387215888 on C:\Users\hayk_\.cache\huggingface\modules\evaluate_modules\metrics\evaluate-metric--bleu.lock
+2025-11-05 03:35:40 - filelock - DEBUG - Lock 2585387215888 released on C:\Users\hayk_\.cache\huggingface\modules\evaluate_modules\metrics\evaluate-metric--bleu.lock
+2025-11-05 03:35:40 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): s3.amazonaws.com:443
+2025-11-05 03:35:41 - urllib3.connectionpool - DEBUG - https://s3.amazonaws.com:443 "HEAD /datasets.huggingface.co/datasets/metrics/evaluate-metric/rouge/evaluate-metric/rouge.py HTTP/1.1" 404 0
+2025-11-05 03:35:41 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): huggingface.co:443
+2025-11-05 03:35:41 - urllib3.connectionpool - DEBUG - https://huggingface.co:443 "HEAD /spaces/evaluate-metric/rouge/resolve/v0.4.5/rouge.py HTTP/1.1" 404 0
+2025-11-05 03:35:41 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): huggingface.co:443
+2025-11-05 03:35:41 - urllib3.connectionpool - DEBUG - https://huggingface.co:443 "HEAD /spaces/evaluate-metric/rouge/resolve/main/rouge.py HTTP/1.1" 307 0
+2025-11-05 03:35:41 - urllib3.connectionpool - DEBUG - https://huggingface.co:443 "HEAD /api/resolve-cache/spaces/evaluate-metric/rouge/00faf9c3eecc4dcd11ff8184e0b1bd37e15fe3b2/rouge.py?%2Fspaces%2Fevaluate-metric%2Frouge%2Fresolve%2Fmain%2Frouge.py=&etag=%22353301cca11fb5c7d4f0b0e70cde1560b4139bc7%22 HTTP/1.1" 200 0
+2025-11-05 03:35:42 - filelock - DEBUG - Attempting to acquire lock 2585458115408 on C:\Users\hayk_\.cache\huggingface\modules\evaluate_modules\metrics\evaluate-metric--rouge.lock
+2025-11-05 03:35:42 - filelock - DEBUG - Lock 2585458115408 acquired on C:\Users\hayk_\.cache\huggingface\modules\evaluate_modules\metrics\evaluate-metric--rouge.lock
+2025-11-05 03:35:42 - filelock - DEBUG - Attempting to release lock 2585458115408 on C:\Users\hayk_\.cache\huggingface\modules\evaluate_modules\metrics\evaluate-metric--rouge.lock
+2025-11-05 03:35:42 - filelock - DEBUG - Lock 2585458115408 released on C:\Users\hayk_\.cache\huggingface\modules\evaluate_modules\metrics\evaluate-metric--rouge.lock
+2025-11-05 03:35:42 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): s3.amazonaws.com:443
+2025-11-05 03:35:43 - urllib3.connectionpool - DEBUG - https://s3.amazonaws.com:443 "HEAD /datasets.huggingface.co/datasets/metrics/evaluate-metric/perplexity/evaluate-metric/perplexity.py HTTP/1.1" 404 0
+2025-11-05 03:35:43 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): huggingface.co:443
+2025-11-05 03:35:43 - urllib3.connectionpool - DEBUG - https://huggingface.co:443 "HEAD /spaces/evaluate-metric/perplexity/resolve/v0.4.5/perplexity.py HTTP/1.1" 404 0
+2025-11-05 03:35:43 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): huggingface.co:443
+2025-11-05 03:35:44 - urllib3.connectionpool - DEBUG - https://huggingface.co:443 "HEAD /spaces/evaluate-metric/perplexity/resolve/main/perplexity.py HTTP/1.1" 307 0
+2025-11-05 03:35:44 - urllib3.connectionpool - DEBUG - https://huggingface.co:443 "HEAD /api/resolve-cache/spaces/evaluate-metric/perplexity/b14f017d7f967bf4a1761dea4ff7af587bbde96e/perplexity.py?%2Fspaces%2Fevaluate-metric%2Fperplexity%2Fresolve%2Fmain%2Fperplexity.py=&etag=%22557172cdbf7680ce80ac60090e66ca50e8b0f4bc%22 HTTP/1.1" 200 0
+2025-11-05 03:35:44 - filelock - DEBUG - Attempting to acquire lock 2585387316752 on C:\Users\hayk_\.cache\huggingface\modules\evaluate_modules\metrics\evaluate-metric--perplexity.lock
+2025-11-05 03:35:44 - filelock - DEBUG - Lock 2585387316752 acquired on C:\Users\hayk_\.cache\huggingface\modules\evaluate_modules\metrics\evaluate-metric--perplexity.lock
+2025-11-05 03:35:44 - filelock - DEBUG - Attempting to release lock 2585387316752 on C:\Users\hayk_\.cache\huggingface\modules\evaluate_modules\metrics\evaluate-metric--perplexity.lock
+2025-11-05 03:35:44 - filelock - DEBUG - Lock 2585387316752 released on C:\Users\hayk_\.cache\huggingface\modules\evaluate_modules\metrics\evaluate-metric--perplexity.lock
+2025-11-05 03:35:44 - filelock - DEBUG - Attempting to acquire lock 2585387375184 on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock
+2025-11-05 03:35:44 - filelock - DEBUG - Lock 2585387375184 not acquired on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock, waiting 0.05 seconds ...
+2025-11-05 03:35:44 - filelock - DEBUG - Attempting to acquire lock 2585387375184 on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock
+2025-11-05 03:35:44 - filelock - DEBUG - Lock 2585387375184 not acquired on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock, waiting 0.05 seconds ...
+2025-11-05 03:35:44 - filelock - DEBUG - Attempting to acquire lock 2585387375184 on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock
+2025-11-05 03:35:44 - filelock - DEBUG - Lock 2585387375184 not acquired on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock, waiting 0.05 seconds ...
+2025-11-05 03:35:44 - filelock - DEBUG - Attempting to acquire lock 2585387375184 on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock
+2025-11-05 03:35:44 - filelock - DEBUG - Lock 2585387375184 not acquired on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock, waiting 0.05 seconds ...
+2025-11-05 03:35:44 - filelock - DEBUG - Attempting to acquire lock 2585387375184 on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock
+2025-11-05 03:35:44 - filelock - DEBUG - Lock 2585387375184 not acquired on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock, waiting 0.05 seconds ...
+2025-11-05 03:35:44 - filelock - DEBUG - Attempting to acquire lock 2585387375184 on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock
+2025-11-05 03:35:44 - filelock - DEBUG - Lock 2585387375184 not acquired on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock, waiting 0.05 seconds ...
+2025-11-05 03:35:44 - filelock - DEBUG - Attempting to acquire lock 2585387375184 on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock
+2025-11-05 03:35:44 - filelock - DEBUG - Lock 2585387375184 not acquired on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock, waiting 0.05 seconds ...
+2025-11-05 03:35:44 - filelock - DEBUG - Attempting to acquire lock 2585387375184 on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock
+2025-11-05 03:35:44 - filelock - DEBUG - Lock 2585387375184 not acquired on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock, waiting 0.05 seconds ...
+2025-11-05 03:35:44 - filelock - DEBUG - Attempting to acquire lock 2585387375184 on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock
+2025-11-05 03:35:44 - filelock - DEBUG - Lock 2585387375184 not acquired on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock, waiting 0.05 seconds ...
+2025-11-05 03:35:44 - filelock - DEBUG - Attempting to acquire lock 2585387375184 on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock
+2025-11-05 03:35:44 - filelock - DEBUG - Lock 2585387375184 not acquired on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock, waiting 0.05 seconds ...
+2025-11-05 03:35:44 - filelock - DEBUG - Attempting to acquire lock 2585387375184 on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock
+2025-11-05 03:35:44 - filelock - DEBUG - Lock 2585387375184 not acquired on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock, waiting 0.05 seconds ...
+2025-11-05 03:35:44 - filelock - DEBUG - Attempting to acquire lock 2585387375184 on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock
+2025-11-05 03:35:44 - filelock - DEBUG - Lock 2585387375184 not acquired on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock, waiting 0.05 seconds ...
+2025-11-05 03:35:45 - filelock - DEBUG - Attempting to acquire lock 2585387375184 on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock
+2025-11-05 03:35:45 - filelock - DEBUG - Lock 2585387375184 not acquired on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock, waiting 0.05 seconds ...
+2025-11-05 03:35:45 - filelock - DEBUG - Attempting to acquire lock 2585387375184 on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock
+2025-11-05 03:35:45 - filelock - DEBUG - Lock 2585387375184 not acquired on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock, waiting 0.05 seconds ...
+2025-11-05 03:35:45 - filelock - DEBUG - Attempting to acquire lock 2585387375184 on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock
+2025-11-05 03:35:45 - filelock - DEBUG - Lock 2585387375184 not acquired on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock, waiting 0.05 seconds ...
+2025-11-05 03:35:45 - filelock - DEBUG - Attempting to acquire lock 2585387375184 on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock
+2025-11-05 03:35:45 - filelock - DEBUG - Lock 2585387375184 not acquired on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock, waiting 0.05 seconds ...
+2025-11-05 03:35:45 - filelock - DEBUG - Attempting to acquire lock 2585387375184 on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock
+2025-11-05 03:35:45 - filelock - DEBUG - Lock 2585387375184 not acquired on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock, waiting 0.05 seconds ...
+2025-11-05 03:35:45 - filelock - DEBUG - Attempting to acquire lock 2585387375184 on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock
+2025-11-05 03:35:45 - filelock - DEBUG - Lock 2585387375184 not acquired on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock, waiting 0.05 seconds ...
+2025-11-05 03:35:45 - filelock - DEBUG - Attempting to acquire lock 2585387375184 on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock
+2025-11-05 03:35:45 - filelock - DEBUG - Lock 2585387375184 not acquired on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock, waiting 0.05 seconds ...
+2025-11-05 03:35:45 - filelock - DEBUG - Attempting to acquire lock 2585387375184 on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock
+2025-11-05 03:35:45 - filelock - DEBUG - Lock 2585387375184 not acquired on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock, waiting 0.05 seconds ...
+2025-11-05 03:35:45 - filelock - DEBUG - Attempting to acquire lock 2585387375184 on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock
+2025-11-05 03:35:45 - filelock - DEBUG - Timeout on acquiring lock 2585387375184 on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock
+2025-11-05 03:35:45 - filelock - DEBUG - Attempting to acquire lock 2585387260048 on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-d825e49d-fe54-4b65-9ac2-d492c2398d3c-1-0.arrow.lock
+2025-11-05 03:35:45 - filelock - DEBUG - Lock 2585387260048 acquired on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-d825e49d-fe54-4b65-9ac2-d492c2398d3c-1-0.arrow.lock
+2025-11-05 03:35:45 - fsspec.local - DEBUG - open file: C:/Users/hayk_/.cache/huggingface/metrics/perplexity/default/default_experiment-d825e49d-fe54-4b65-9ac2-d492c2398d3c-1-0.arrow
+2025-11-05 03:35:45 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): huggingface.co:443
+2025-11-05 03:35:45 - urllib3.connectionpool - DEBUG - https://huggingface.co:443 "HEAD /gpt2/resolve/main/config.json HTTP/1.1" 200 0
+2025-11-05 03:35:46 - urllib3.connectionpool - DEBUG - https://huggingface.co:443 "HEAD /gpt2/resolve/main/generation_config.json HTTP/1.1" 200 0
+2025-11-05 03:35:46 - urllib3.connectionpool - DEBUG - https://huggingface.co:443 "HEAD /gpt2/resolve/main/custom_generate/generate.py HTTP/1.1" 404 0
+2025-11-05 03:35:46 - urllib3.connectionpool - DEBUG - https://huggingface.co:443 "HEAD /gpt2/resolve/main/tokenizer_config.json HTTP/1.1" 200 0
+2025-11-05 03:35:46 - urllib3.connectionpool - DEBUG - https://huggingface.co:443 "GET /api/models/gpt2/tree/main/additional_chat_templates?recursive=False&expand=False HTTP/1.1" 307 133
+2025-11-05 03:35:46 - urllib3.connectionpool - DEBUG - https://huggingface.co:443 "GET /api/models/openai-community/gpt2/tree/main/additional_chat_templates?recursive=False&expand=False HTTP/1.1" 404 64
+2025-11-05 03:37:15 - filelock - DEBUG - Attempting to release lock 2585387260048 on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-d825e49d-fe54-4b65-9ac2-d492c2398d3c-1-0.arrow.lock
+2025-11-05 03:37:15 - filelock - DEBUG - Lock 2585387260048 released on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-d825e49d-fe54-4b65-9ac2-d492c2398d3c-1-0.arrow.lock
+2025-11-05 03:37:24 - filelock - DEBUG - Attempting to acquire lock 2585459583120 on C:\Users\hayk_\.cache\huggingface\metrics\bleu\default\default_experiment-1-0.arrow.lock
+2025-11-05 03:37:24 - filelock - DEBUG - Lock 2585459583120 acquired on C:\Users\hayk_\.cache\huggingface\metrics\bleu\default\default_experiment-1-0.arrow.lock
+2025-11-05 03:37:24 - fsspec.local - DEBUG - open file: C:/Users/hayk_/.cache/huggingface/metrics/bleu/default/default_experiment-1-0.arrow
+2025-11-05 03:37:24 - filelock - DEBUG - Attempting to release lock 2585459583120 on C:\Users\hayk_\.cache\huggingface\metrics\bleu\default\default_experiment-1-0.arrow.lock
+2025-11-05 03:37:24 - filelock - DEBUG - Lock 2585459583120 released on C:\Users\hayk_\.cache\huggingface\metrics\bleu\default\default_experiment-1-0.arrow.lock
+2025-11-05 03:37:24 - filelock - DEBUG - Attempting to acquire lock 2585459690704 on C:\Users\hayk_\.cache\huggingface\metrics\rouge\default\default_experiment-1-0.arrow.lock
+2025-11-05 03:37:24 - filelock - DEBUG - Lock 2585459690704 acquired on C:\Users\hayk_\.cache\huggingface\metrics\rouge\default\default_experiment-1-0.arrow.lock
+2025-11-05 03:37:24 - fsspec.local - DEBUG - open file: C:/Users/hayk_/.cache/huggingface/metrics/rouge/default/default_experiment-1-0.arrow
+2025-11-05 03:37:24 - filelock - DEBUG - Attempting to release lock 2585459690704 on C:\Users\hayk_\.cache\huggingface\metrics\rouge\default\default_experiment-1-0.arrow.lock
+2025-11-05 03:37:24 - filelock - DEBUG - Lock 2585459690704 released on C:\Users\hayk_\.cache\huggingface\metrics\rouge\default\default_experiment-1-0.arrow.lock
+2025-11-05 03:37:24 - filelock - DEBUG - Attempting to acquire lock 2585459703376 on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock
+2025-11-05 03:37:24 - filelock - DEBUG - Lock 2585459703376 not acquired on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock, waiting 0.05 seconds ...
+2025-11-05 03:37:24 - filelock - DEBUG - Attempting to acquire lock 2585459703376 on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock
+2025-11-05 03:37:24 - filelock - DEBUG - Lock 2585459703376 not acquired on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock, waiting 0.05 seconds ...
+2025-11-05 03:37:25 - filelock - DEBUG - Attempting to acquire lock 2585459703376 on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock
+2025-11-05 03:37:25 - filelock - DEBUG - Lock 2585459703376 not acquired on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock, waiting 0.05 seconds ...
+2025-11-05 03:37:25 - filelock - DEBUG - Attempting to acquire lock 2585459703376 on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock
+2025-11-05 03:37:25 - filelock - DEBUG - Lock 2585459703376 not acquired on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock, waiting 0.05 seconds ...
+2025-11-05 03:37:25 - filelock - DEBUG - Attempting to acquire lock 2585459703376 on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock
+2025-11-05 03:37:25 - filelock - DEBUG - Lock 2585459703376 not acquired on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock, waiting 0.05 seconds ...
+2025-11-05 03:37:25 - filelock - DEBUG - Attempting to acquire lock 2585459703376 on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock
+2025-11-05 03:37:25 - filelock - DEBUG - Lock 2585459703376 not acquired on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock, waiting 0.05 seconds ...
+2025-11-05 03:37:25 - filelock - DEBUG - Attempting to acquire lock 2585459703376 on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock
+2025-11-05 03:37:25 - filelock - DEBUG - Lock 2585459703376 not acquired on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock, waiting 0.05 seconds ...
+2025-11-05 03:37:25 - filelock - DEBUG - Attempting to acquire lock 2585459703376 on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock
+2025-11-05 03:37:25 - filelock - DEBUG - Lock 2585459703376 not acquired on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock, waiting 0.05 seconds ...
+2025-11-05 03:37:25 - filelock - DEBUG - Attempting to acquire lock 2585459703376 on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock
+2025-11-05 03:37:25 - filelock - DEBUG - Lock 2585459703376 not acquired on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock, waiting 0.05 seconds ...
+2025-11-05 03:37:25 - filelock - DEBUG - Attempting to acquire lock 2585459703376 on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock
+2025-11-05 03:37:25 - filelock - DEBUG - Lock 2585459703376 not acquired on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock, waiting 0.05 seconds ...
+2025-11-05 03:37:25 - filelock - DEBUG - Attempting to acquire lock 2585459703376 on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock
+2025-11-05 03:37:25 - filelock - DEBUG - Lock 2585459703376 not acquired on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock, waiting 0.05 seconds ...
+2025-11-05 03:37:25 - filelock - DEBUG - Attempting to acquire lock 2585459703376 on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock
+2025-11-05 03:37:25 - filelock - DEBUG - Lock 2585459703376 not acquired on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock, waiting 0.05 seconds ...
+2025-11-05 03:37:25 - filelock - DEBUG - Attempting to acquire lock 2585459703376 on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock
+2025-11-05 03:37:25 - filelock - DEBUG - Lock 2585459703376 not acquired on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock, waiting 0.05 seconds ...
+2025-11-05 03:37:25 - filelock - DEBUG - Attempting to acquire lock 2585459703376 on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock
+2025-11-05 03:37:25 - filelock - DEBUG - Lock 2585459703376 not acquired on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock, waiting 0.05 seconds ...
+2025-11-05 03:37:25 - filelock - DEBUG - Attempting to acquire lock 2585459703376 on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock
+2025-11-05 03:37:25 - filelock - DEBUG - Lock 2585459703376 not acquired on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock, waiting 0.05 seconds ...
+2025-11-05 03:37:25 - filelock - DEBUG - Attempting to acquire lock 2585459703376 on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock
+2025-11-05 03:37:25 - filelock - DEBUG - Lock 2585459703376 not acquired on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock, waiting 0.05 seconds ...
+2025-11-05 03:37:25 - filelock - DEBUG - Attempting to acquire lock 2585459703376 on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock
+2025-11-05 03:37:25 - filelock - DEBUG - Lock 2585459703376 not acquired on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock, waiting 0.05 seconds ...
+2025-11-05 03:37:25 - filelock - DEBUG - Attempting to acquire lock 2585459703376 on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock
+2025-11-05 03:37:25 - filelock - DEBUG - Lock 2585459703376 not acquired on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock, waiting 0.05 seconds ...
+2025-11-05 03:37:25 - filelock - DEBUG - Attempting to acquire lock 2585459703376 on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock
+2025-11-05 03:37:25 - filelock - DEBUG - Lock 2585459703376 not acquired on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock, waiting 0.05 seconds ...
+2025-11-05 03:37:25 - filelock - DEBUG - Attempting to acquire lock 2585459703376 on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock
+2025-11-05 03:37:25 - filelock - DEBUG - Lock 2585459703376 not acquired on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock, waiting 0.05 seconds ...
+2025-11-05 03:37:25 - filelock - DEBUG - Attempting to acquire lock 2585459703376 on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock
+2025-11-05 03:37:25 - filelock - DEBUG - Timeout on acquiring lock 2585459703376 on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-1-0.arrow.lock
+2025-11-05 03:37:25 - filelock - DEBUG - Attempting to acquire lock 2585459690256 on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-7f86e707-2f20-46c6-b381-a8763c810ed4-1-0.arrow.lock
+2025-11-05 03:37:25 - filelock - DEBUG - Lock 2585459690256 acquired on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-7f86e707-2f20-46c6-b381-a8763c810ed4-1-0.arrow.lock
+2025-11-05 03:37:25 - fsspec.local - DEBUG - open file: C:/Users/hayk_/.cache/huggingface/metrics/perplexity/default/default_experiment-7f86e707-2f20-46c6-b381-a8763c810ed4-1-0.arrow
+2025-11-05 03:37:26 - urllib3.connectionpool - DEBUG - https://huggingface.co:443 "HEAD /gpt2/resolve/main/config.json HTTP/1.1" 200 0
+2025-11-05 03:37:26 - urllib3.connectionpool - DEBUG - https://huggingface.co:443 "HEAD /gpt2/resolve/main/generation_config.json HTTP/1.1" 200 0
+2025-11-05 03:37:26 - urllib3.connectionpool - DEBUG - https://huggingface.co:443 "HEAD /gpt2/resolve/main/custom_generate/generate.py HTTP/1.1" 404 0
+2025-11-05 03:37:26 - urllib3.connectionpool - DEBUG - https://huggingface.co:443 "HEAD /gpt2/resolve/main/tokenizer_config.json HTTP/1.1" 200 0
+2025-11-05 03:37:27 - urllib3.connectionpool - DEBUG - https://huggingface.co:443 "GET /api/models/gpt2/tree/main/additional_chat_templates?recursive=False&expand=False HTTP/1.1" 307 133
+2025-11-05 03:37:27 - urllib3.connectionpool - DEBUG - https://huggingface.co:443 "GET /api/models/openai-community/gpt2/tree/main/additional_chat_templates?recursive=False&expand=False HTTP/1.1" 404 64
+2025-11-05 03:38:28 - filelock - DEBUG - Attempting to release lock 2585459690256 on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-7f86e707-2f20-46c6-b381-a8763c810ed4-1-0.arrow.lock
+2025-11-05 03:38:28 - filelock - DEBUG - Lock 2585459690256 released on C:\Users\hayk_\.cache\huggingface\metrics\perplexity\default\default_experiment-7f86e707-2f20-46c6-b381-a8763c810ed4-1-0.arrow.lock
+2025-11-05 03:38:50 - filelock - DEBUG - Attempting to acquire lock 2585459450640 on C:\Users\hayk_\.cache\huggingface\metrics\bleu\default\default_experiment-1-0.arrow.lock
+2025-11-05 03:38:50 - filelock - DEBUG - Lock 2585459450640 acquired on C:\Users\hayk_\.cache\huggingface\metrics\bleu\default\default_experiment-1-0.arrow.lock
+2025-11-05 03:38:50 - fsspec.local - DEBUG - open file: C:/Users/hayk_/.cache/huggingface/metrics/bleu/default/default_experiment-1-0.arrow
+2025-11-05 03:38:50 - filelock - DEBUG - Attempting to release lock 2585459450640 on C:\Users\hayk_\.cache\huggingface\metrics\bleu\default\default_experiment-1-0.arrow.lock
+2025-11-05 03:38:50 - filelock - DEBUG - Lock 2585459450640 released on C:\Users\hayk_\.cache\huggingface\metrics\bleu\default\default_experiment-1-0.arrow.lock
+2025-11-05 03:38:50 - filelock - DEBUG - Attempting to acquire lock 2585459451536 on C:\Users\hayk_\.cache\huggingface\metrics\rouge\default\default_experiment-1-0.arrow.lock
+2025-11-05 03:38:50 - filelock - DEBUG - Lock 2585459451536 acquired on C:\Users\hayk_\.cache\huggingface\metrics\rouge\default\default_experiment-1-0.arrow.lock
+2025-11-05 03:38:50 - fsspec.local - DEBUG - open file: C:/Users/hayk_/.cache/huggingface/metrics/rouge/default/default_experiment-1-0.arrow
+2025-11-05 03:38:51 - filelock - DEBUG - Attempting to release lock 2585459451536 on C:\Users\hayk_\.cache\huggingface\metrics\rouge\default\default_experiment-1-0.arrow.lock
+2025-11-05 03:38:51 - filelock - DEBUG - Lock 2585459451536 released on C:\Users\hayk_\.cache\huggingface\metrics\rouge\default\default_experiment-1-0.arrow.lock
+2025-11-05 03:38:51 - root - INFO - [val] tokens=111540 ppl=139.9498 bleu=0.0815 rouge1=0.5491
+2025-11-05 03:38:51 - root - INFO - [train] tokens=1003854 ppl=168.6695 bleu=0.0832 rouge1=0.5622
+2025-11-05 03:38:51 - root - INFO - External evaluation saved to: checkpoints\samplers\vi_sampler\external_eval_20251105_033851.json
+2025-11-05 03:38:51 - root - INFO - ======================================================================
+2025-11-05 03:38:51 - root - INFO - Log file saved to: logs\vi_training_20251105_033430.log
+2025-11-05 03:38:51 - root - INFO - ======================================================================
