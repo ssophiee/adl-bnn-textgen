@@ -222,7 +222,6 @@ class BayesianSamplerPipeline:
         self.config = config
         self.use_wandb = use_wandb and WANDB_AVAILABLE
         self.wandb_run = None
-        self.collected_samples = []  # For SGMCMC samples
         
         self.metrics = {
             'training_losses': [],
@@ -389,6 +388,7 @@ class BayesianSamplerPipeline:
         
         # For SGMCMC: collect samples during training
         if self.sampler_type == 'sgmcmc':
+            collected_samples = []
             burn_in_epochs = self.config.get('sgmcmc_burnin_epochs', 5)
             sample_every_n_batches = self.config.get('sgmcmc_thinning', 10)
 
@@ -413,7 +413,7 @@ class BayesianSamplerPipeline:
                         if epoch >= burn_in_epochs and batch_idx % sample_every_n_batches == 0:
                             # Store a copy of current params as a sample
                             sample = {k: v.clone().detach() for k, v in state.params.items()}
-                            self.collected_samples.append(sample)
+                            collected_samples.append(sample)
 
                     if self.sampler_type in ['vi']:
                         # For VI and EKF, state contains log_sd_diag (std in log space)
@@ -514,15 +514,14 @@ class BayesianSamplerPipeline:
         if self.sampler_type == 'sgmcmc':
             # Move samples back to device for evaluation
             collected_samples_device = []
-            for sample in self.collected_samples:
+            for sample in collected_samples:
                 sample_device = {k: v.to(DEVICE) for k, v in sample.items()}
                 collected_samples_device.append(sample_device)
-
-            self.collected_samples = collected_samples_device
+            
+            state.collected_samples = collected_samples_device
             print(f"\n✓ Collected {len(collected_samples_device)} SGMCMC samples total")
-            return state, self.metrics, self.collected_samples
 
-        return state, self.metrics, None
+        return state, self.metrics
     
     def _extract_sampler_metrics(self, state, epoch):
         """Extract sampler-specific metrics from state"""
@@ -544,7 +543,7 @@ class BayesianSamplerPipeline:
         
         return metrics
     
-    def evaluate_predictions(self, state, model, test_batch, num_samples=5, collected_samples=None):
+    def evaluate_predictions(self, state, model, test_batch, num_samples=5):
         """
         Evaluate model predictions with uncertainty quantification, W&B logging,
         and comparison against deterministic model
@@ -608,17 +607,14 @@ class BayesianSamplerPipeline:
         posterior_samples = []
         
         if self.sampler_type == 'sgmcmc':
-            if collected_samples is not None:
+            if hasattr(state, 'collected_samples') and len(state.collected_samples) > 0:
                 # Use last N samples from training
-                samples_to_use = collected_samples[-num_samples:]
+                samples_to_use = state.collected_samples[-num_samples:]
                 
                 for sample_params in samples_to_use:
                     with torch.no_grad():
                         sample_logits, _ = func.functional_call(model, sample_params, (x_test,))
-                        sample_loss = F.cross_entropy(
-                            sample_logits.view(-1, sample_logits.size(-1)),
-                            y_test.view(-1)
-                        )
+                        sample_loss = F.cross_entropy(...)
                         sample_losses.append(sample_loss.item())
                         posterior_samples.append(sample_logits)
             else:
@@ -757,14 +753,48 @@ class BayesianSamplerPipeline:
         
         # Save model state
         model_path = version_dir / f'{self.sampler_type}_model.pt'
+
+        # Build saved state incrementally
         saved_state = {
             'model_state_dict': model.state_dict(),
             'sampler_state_params': {k: v.cpu() for k, v in current_params.items()},
-            'sampler_state_aux': {k: v.cpu() if isinstance(v, torch.Tensor) else v 
-                                  for k, v in state.aux.items()} if hasattr(state, 'aux') else {},
             'complete_metrics': complete_metrics
         }
-        
+
+        # Save log_sd_diag (required for VIDiagState reconstruction)
+        if hasattr(state, 'log_sd_diag'):
+            saved_state['log_sd_diag'] = {k: v.cpu() for k, v in state.log_sd_diag.items()}
+        else:
+            saved_state['log_sd_diag'] = {}  # Empty dict as fallback
+
+        # Save opt_state (required for VIDiagState reconstruction)
+        if hasattr(state, 'opt_state'):
+            # Handle nested opt_state structure with named tuples
+            def move_to_cpu_recursive(obj):
+                if isinstance(obj, torch.Tensor):
+                    return obj.cpu()
+                elif isinstance(obj, dict):
+                    return {k: move_to_cpu_recursive(v) for k, v in obj.items()}
+                elif isinstance(obj, tuple) and hasattr(obj, '_fields'):  # Named tuple
+                    # Reconstruct named tuple with CPU tensors
+                    return type(obj)(*[move_to_cpu_recursive(item) for item in obj])
+                elif isinstance(obj, (list, tuple)):
+                    converted = [move_to_cpu_recursive(item) for item in obj]
+                    return type(obj)(converted) if isinstance(obj, tuple) else converted
+                else:
+                    return obj
+            
+            saved_state['opt_state'] = move_to_cpu_recursive(state.opt_state)
+        else:
+            saved_state['opt_state'] = {}  # Empty dict as fallback
+
+        # Add aux if it exists and is not empty
+        if hasattr(state, 'aux') and state.aux:
+            saved_state['sampler_state_aux'] = {
+                k: v.cpu() if isinstance(v, torch.Tensor) else v 
+                for k, v in state.aux.items()
+            }
+
         torch.save(saved_state, model_path)
         print(f"✓ Model saved: {model_path}")
         
@@ -912,14 +942,14 @@ def run_bayesian_pipeline(training_batches, sampler_type='vi', use_wandb=True):
     
     try:
         transform, state = pipeline.setup_sampler(log_posterior_fn, params)
-        state, metrics, collected_samples = pipeline.run_training(
+        state, metrics = pipeline.run_training(
             transform, state, training_batches,
             single_batch_loss, log_posterior_fn
         )
         
         # Pass the model for deterministic comparison
         eval_results = pipeline.evaluate_predictions(
-            state, MODEL, training_batches[0], num_samples=5, collected_samples=collected_samples
+            state, MODEL, training_batches[0], num_samples=5
         )
         
         save_dir = pipeline.save_model(state, MODEL, eval_results)
