@@ -13,7 +13,7 @@ import posteriors
 import torch.nn.functional as F
 from pathlib import Path
 from torch.optim.lr_scheduler import CosineAnnealingLR
-from config import DEVICE, CONFIG, MODEL_PATH, WANDB_AVAILABLE, CONFIG_EKF, CONFIG_SGMCMC
+from config import DEVICE, CONFIG, MODEL_PATH, WANDB_AVAILABLE, CONFIG_EKF, CONFIG_SGMCMC, CONFIG_SGLD, CONFIG_SGHMC, CONFIG_BAOA
 from src.nanogpt_utils import load_model
 MODEL, checkpoint = load_model(Path(MODEL_PATH), DEVICE) # TODO: pass device
 INITIAL_PARAMS = {k: v.clone().to(DEVICE) for k, v in MODEL.named_parameters()}
@@ -55,37 +55,6 @@ def single_batch_loss(params, batch):
     loss = F.cross_entropy(logits_flat, targets_flat, reduction='mean')
     return loss
 
-
-# def log_posterior_fn(params, batch):    
-#     try:
-#         nll = single_batch_loss(params, batch)
-#         print(f"NLL computed successfully: {nll}")
-#     except Exception as e:
-#         print(f"Error in single_batch_loss: {e}")
-#         raise
-    
-#     try:
-#         # During the first iteration, INITIAL_PARAMS is the same as params
-#         # so the log prior will be zero. This is expected.
-        
-#         log_prior = posteriors.diag_normal_log_prob(params, mean=INITIAL_PARAMS, sd_diag=CONFIG.get('prior_std', 0.01))
-#         print(f"Log prior computed successfully: {log_prior}")
-#     except Exception as e:
-#         print(f"Error in diag_normal_log_prob: {e}")
-#         raise
-    
-#     try:
-#         num_data_tensor = torch.tensor(float(CONFIG['train_samples']), device=DEVICE, dtype=torch.float32)
-#         beta = CONFIG.get('prior_beta', 1.0)
-
-#         # beta scales the influence of the prior (too strong because of the number of parameters)
-#         log_posterior = -nll + beta * (log_prior / num_data_tensor) 
-#         print(f"Log posterior computed successfully: {log_posterior}")
-#         return log_posterior, {}
-#     except Exception as e:
-#         print(f"Error in final computation: {e}")
-#         raise
-
 def log_posterior_fn(params, batch):    
     """
     Compute log posterior for VI with character-based model.
@@ -103,10 +72,7 @@ def log_posterior_fn(params, batch):
         mean=INITIAL_PARAMS, 
         sd_diag=CONFIG.get('prior_std', 0.01)
     )
-    
-    # Number of predictions in this batch
-    batch_size = x.shape[0]  # Each sequence predicts 1 character
-    
+        
     # Total number of predictions in training set
     total_samples = CONFIG['train_samples']  # Total sequences = total predictions
     
@@ -114,43 +80,11 @@ def log_posterior_fn(params, batch):
     # nll is mean loss per prediction in batch
     log_likelihood = -nll * total_samples
     
-    beta = CONFIG.get('prior_beta', 1.0 / total_samples)  # Default: scale by dataset size
+    beta = CONFIG.get('prior_beta', 1.0 / total_samples)  
     log_posterior = log_likelihood + beta * log_prior
 
     return log_posterior, {}
 
-# def log_likelihood_fn(params, batch):
-#     """
-#     Compute log-likelihood for a single batch.
-    
-#     Args:
-#         params: Model parameters
-#         batch: Tuple of (x, y) where x is input and y is target
-        
-#     Returns:
-#         log_likelihood: Scalar tensor (negative of the loss scaled by batch size)
-#         aux: Dictionary with auxiliary information
-#     """
-#     x, y = batch
-#     logits, aux_model = func.functional_call(MODEL, params, (x,))
-    
-#     batch_size, seq_length, vocab_size = logits.shape
-#     logits_flat = logits.view(-1, vocab_size)
-#     targets_flat = y.view(-1)
-    
-#     # Compute cross-entropy loss with reduction='sum'
-#     loss_sum = F.cross_entropy(logits_flat, targets_flat, reduction='sum')
-    
-#     # Convert to log-likelihood (negative loss)
-#     log_likelihood = -loss_sum
-    
-#     # Auxiliary info (can include whatever you need)
-#     aux = {
-#         'logits': logits,
-#         'model_aux': aux_model
-#     }
-    
-#     return log_likelihood, aux
 
 def log_likelihood_fn(params, batch):
     """
@@ -203,8 +137,8 @@ def evaluate_deterministic_model(model, test_batch):
 
 class BayesianSamplerPipeline:
     """Unified pipeline for different Bayesian inference methods with W&B tracking"""
-    
-    AVAILABLE_SAMPLERS = ['vi', 'ekf', 'laplace', 'sgmcmc']
+
+    AVAILABLE_SAMPLERS = ['vi', 'ekf', 'laplace', 'sgmcmc', 'sgld', 'sghmc', 'baoa']
     
     def __init__(self, sampler_type: str, config: dict, use_wandb: bool = True):
         """
@@ -256,7 +190,7 @@ class BayesianSamplerPipeline:
         print(f"\n{'='*60}")
         print(f"Setting up {self.sampler_type.upper()} sampler")
         print(f"{'='*60}")
-        
+
         if self.sampler_type == 'vi':
             return self._setup_vi(log_posterior_fn, params)
         elif self.sampler_type == 'ekf':
@@ -267,6 +201,10 @@ class BayesianSamplerPipeline:
             return self._setup_sgmcmc(log_posterior_fn, params)
         elif self.sampler_type == 'sgld':
             return self._setup_sgld(log_posterior_fn, params)
+        elif self.sampler_type == 'sghmc':
+            return self._setup_sghmc(log_posterior_fn, params)
+        elif self.sampler_type == 'baoa':
+            return self._setup_baoa(log_posterior_fn, params)
     
     def _setup_vi(self, log_posterior_fn, params):
         """Setup Variational Inference (Diagonal Gaussian)"""
@@ -355,21 +293,76 @@ class BayesianSamplerPipeline:
 
     def _setup_sgld(self, log_posterior_fn, params):
         """Setup Stochastic Gradient Langevin Dynamics (SGLD)"""
-        
+
         transform = posteriors.sgmcmc.sgld.build(
             log_posterior=log_posterior_fn,
             lr=self.config.get('learning_rate', 1e-6),
             beta=self.config.get('sgld_beta', 0.0),        # Gradient noise correction
             temperature=self.config.get('temperature', 1.0)
         )
-        
+
         state = transform.init(params)
-        
+
         print(f"SGLD configured with:")
         print(f"- Learning rate: {self.config.get('learning_rate', 1e-6)}")
         print(f"- Beta (noise correction): {self.config.get('sgld_beta', 0.0)}")
         print(f"- Temperature: {self.config.get('temperature', 1.0)}")
-        
+        print(f"- Warmup steps: {self.config.get('warmup_steps', 200)}")
+        print(f"- Sampling steps: {self.config.get('sampling_steps', 1000)}")
+        print(f"- Thinning (collect every Nth): {self.config.get('thinning', 10)}")
+
+        return transform, state
+
+    def _setup_sghmc(self, log_posterior_fn, params):
+        """Setup Stochastic Gradient Hamiltonian Monte Carlo (SGHMC)"""
+
+        transform = posteriors.sgmcmc.sghmc.build(
+            log_posterior=log_posterior_fn,
+            lr=self.config.get('learning_rate', 1e-7),
+            alpha=self.config.get('sghmc_alpha', 0.01),      # Friction coefficient
+            beta=self.config.get('sghmc_beta', 0.0),         # Noise estimate (0 = no correction)
+            sigma=self.config.get('sghmc_sigma', 1.0),       # Prior std for momenta
+            temperature=self.config.get('temperature', 1.0),  # Posterior tempering
+            momenta=None  # Will be initialized automatically
+        )
+
+        state = transform.init(params)
+
+        print(f"SGHMC configured with:")
+        print(f"- Learning rate: {self.config.get('learning_rate', 1e-7)}")
+        print(f"- Alpha (friction): {self.config.get('sghmc_alpha', 0.01)}")
+        print(f"- Beta (noise estimate): {self.config.get('sghmc_beta', 0.0)}")
+        print(f"- Sigma (momenta prior std): {self.config.get('sghmc_sigma', 1.0)}")
+        print(f"- Temperature: {self.config.get('temperature', 1.0)}")
+        print(f"- Warmup steps: {self.config.get('warmup_steps', 200)}")
+        print(f"- Sampling steps: {self.config.get('sampling_steps', 1000)}")
+        print(f"- Thinning (collect every Nth): {self.config.get('thinning', 10)}")
+
+        return transform, state
+
+    def _setup_baoa(self, log_posterior_fn, params):
+        """Setup Bayesian Adaptive Optimization Algorithm (BAOA)"""
+
+        transform = posteriors.sgmcmc.baoa.build(
+            log_posterior=log_posterior_fn,
+            lr=self.config.get('learning_rate', 1e-6),
+            alpha=self.config.get('baoa_alpha', 0.01),       # Momentum decay
+            sigma=self.config.get('baoa_sigma', 1.0),        # Prior std for momenta
+            temperature=self.config.get('temperature', 1.0),  # Posterior tempering
+            momenta=None  # Will be initialized automatically
+        )
+
+        state = transform.init(params)
+
+        print(f"BAOA configured with:")
+        print(f"- Learning rate: {self.config.get('learning_rate', 1e-6)}")
+        print(f"- Alpha (momentum decay): {self.config.get('baoa_alpha', 0.01)}")
+        print(f"- Sigma (momenta prior std): {self.config.get('baoa_sigma', 1.0)}")
+        print(f"- Temperature: {self.config.get('temperature', 1.0)}")
+        print(f"- Warmup steps: {self.config.get('warmup_steps', 200)}")
+        print(f"- Sampling steps: {self.config.get('sampling_steps', 1000)}")
+        print(f"- Thinning (collect every Nth): {self.config.get('thinning', 10)}")
+
         return transform, state
 
     def run_training(self, transform, state, training_batches, 
@@ -386,11 +379,20 @@ class BayesianSamplerPipeline:
         print(f"  - Total iterations: {self.config['num_epochs'] * len(training_batches)}")
         print(f"{'='*60}\n")
         
-        # For SGMCMC: collect samples during training
-        if self.sampler_type == 'sgmcmc':
+        # For SGMCMC samplers: collect samples during training with warmup
+        if self.sampler_type in ['sgmcmc', 'sgld', 'sghmc', 'baoa']:
             collected_samples = []
-            burn_in_epochs = self.config.get('sgmcmc_burnin_epochs', 5)
-            sample_every_n_batches = self.config.get('sgmcmc_thinning', 10)
+            warmup_steps = self.config.get('warmup_steps', 200)
+            sampling_steps = self.config.get('sampling_steps', 1000)
+            thinning = self.config.get('thinning', 10)
+            total_mcmc_steps = warmup_steps + sampling_steps
+
+            print(f"\nMCMC Sampling Configuration:")
+            print(f"  - Warmup steps: {warmup_steps}")
+            print(f"  - Sampling steps: {sampling_steps}")
+            print(f"  - Total steps: {total_mcmc_steps}")
+            print(f"  - Thinning: Collect every {thinning} samples")
+            print(f"  - Expected samples: ~{sampling_steps // thinning}\n")
 
         start_time = datetime.datetime.now()
         global_step = 0
@@ -409,11 +411,21 @@ class BayesianSamplerPipeline:
                     state = transform.update(state, batch)
                     print(f"  Batch processed successfully.")
 
-                    if self.sampler_type == 'sgmcmc':
-                        if epoch >= burn_in_epochs and batch_idx % sample_every_n_batches == 0:
-                            # Store a copy of current params as a sample
-                            sample = {k: v.clone().detach() for k, v in state.params.items()}
-                            collected_samples.append(sample)
+                    # For SGMCMC samplers: collect samples after warmup with thinning
+                    if self.sampler_type in ['sgmcmc', 'sgld', 'sghmc', 'baoa']:
+                        if global_step >= warmup_steps:
+                            # We're in the sampling phase
+                            steps_after_warmup = global_step - warmup_steps
+                            if steps_after_warmup % thinning == 0 and steps_after_warmup < sampling_steps:
+                                # Store a copy of current params as a sample
+                                sample = {k: v.clone().detach() for k, v in state.params.items()}
+                                collected_samples.append(sample)
+                                print(f"    ✓ Sample #{len(collected_samples)} collected (step {global_step})")
+
+                        # Stop training if we've completed warmup + sampling
+                        if global_step >= total_mcmc_steps:
+                            print(f"\n✓ Completed {total_mcmc_steps} MCMC steps (warmup + sampling)")
+                            break
 
                     if self.sampler_type in ['vi']:
                         # For VI and EKF, state contains log_sd_diag (std in log space)
@@ -492,7 +504,15 @@ class BayesianSamplerPipeline:
             else:
                 print(f"  ✗ Epoch failed - no successful batches")
                 break
-            
+
+            # For SGMCMC samplers: check if we should stop training
+            if self.sampler_type in ['sgmcmc', 'sgld', 'sghmc', 'baoa']:
+                if global_step >= total_mcmc_steps:
+                    print(f"\n{'='*60}")
+                    print(f"MCMC sampling complete!")
+                    print(f"{'='*60}\n")
+                    break
+
             print()
         
         total_time = (datetime.datetime.now() - start_time).total_seconds()
@@ -510,16 +530,16 @@ class BayesianSamplerPipeline:
             wandb.summary['final_log_posterior'] = self.metrics['log_posterior_values'][-1]
             wandb.summary['total_training_time'] = total_time
         
-        # TODO: check if collected_samples correctly returned
-        if self.sampler_type == 'sgmcmc':
+        # Store collected samples for SGMCMC samplers
+        if self.sampler_type in ['sgmcmc', 'sgld', 'sghmc', 'baoa']:
             # Move samples back to device for evaluation
             collected_samples_device = []
             for sample in collected_samples:
                 sample_device = {k: v.to(DEVICE) for k, v in sample.items()}
                 collected_samples_device.append(sample_device)
-            
+
             state.collected_samples = collected_samples_device
-            print(f"\n✓ Collected {len(collected_samples_device)} SGMCMC samples total")
+            print(f"\n✓ Collected {len(collected_samples_device)} {self.sampler_type.upper()} samples total")
 
         return state, self.metrics
     
@@ -534,12 +554,14 @@ class BayesianSamplerPipeline:
                 ])).item()
                 metrics['avg_parameter_std'] = avg_std
         
-        if self.sampler_type == 'sgmcmc':
-            if hasattr(state, 'momentum'):
-                avg_momentum = torch.mean(torch.stack([
-                    torch.abs(v).mean() for v in state.momentum.values()
-                ])).item()
-                metrics['avg_momentum'] = avg_momentum
+        if self.sampler_type in ['sgmcmc', 'sgld', 'sghmc', 'baoa']:
+            if hasattr(state, 'momentum') or hasattr(state, 'momenta'):
+                momentum_dict = getattr(state, 'momentum', None) or getattr(state, 'momenta', None)
+                if momentum_dict:
+                    avg_momentum = torch.mean(torch.stack([
+                        torch.abs(v).mean() for v in momentum_dict.values()
+                    ])).item()
+                    metrics['avg_momentum'] = avg_momentum
         
         return metrics
     
@@ -606,21 +628,32 @@ class BayesianSamplerPipeline:
         sample_losses = []
         posterior_samples = []
         
-        if self.sampler_type == 'sgmcmc':
+        if self.sampler_type in ['sgmcmc', 'sgld', 'sghmc', 'baoa']:
             if hasattr(state, 'collected_samples') and len(state.collected_samples) > 0:
                 # Use last N samples from training
                 samples_to_use = state.collected_samples[-num_samples:]
-                
+
                 for sample_params in samples_to_use:
                     with torch.no_grad():
                         sample_logits, _ = func.functional_call(model, sample_params, (x_test,))
-                        sample_loss = F.cross_entropy(...)
+                        sample_loss = F.cross_entropy(
+                            sample_logits.view(-1, sample_logits.size(-1)),
+                            y_test.view(-1)
+                        )
                         sample_losses.append(sample_loss.item())
                         posterior_samples.append(sample_logits)
             else:
-                print("No SGMCMC samples collected, using final params only")
+                print(f"No {self.sampler_type.upper()} samples collected, using final params only")
                 # Fallback to just using final params
                 sample_params = state.params
+                with torch.no_grad():
+                    sample_logits, _ = func.functional_call(model, sample_params, (x_test,))
+                    sample_loss = F.cross_entropy(
+                        sample_logits.view(-1, sample_logits.size(-1)),
+                        y_test.view(-1)
+                    )
+                    sample_losses.append(sample_loss.item())
+                    posterior_samples.append(sample_logits)
         
         else:
             for i in range(num_samples):
@@ -791,9 +824,18 @@ class BayesianSamplerPipeline:
         # Add aux if it exists and is not empty
         if hasattr(state, 'aux') and state.aux:
             saved_state['sampler_state_aux'] = {
-                k: v.cpu() if isinstance(v, torch.Tensor) else v 
+                k: v.cpu() if isinstance(v, torch.Tensor) else v
                 for k, v in state.aux.items()
             }
+
+        # Save collected samples for SGMCMC samplers
+        if self.sampler_type in ['sgmcmc', 'sgld', 'sghmc', 'baoa']:
+            if hasattr(state, 'collected_samples') and state.collected_samples:
+                saved_state['collected_samples'] = [
+                    {k: v.cpu() for k, v in sample.items()}
+                    for sample in state.collected_samples
+                ]
+                print(f"  Saving {len(state.collected_samples)} collected samples...")
 
         torch.save(saved_state, model_path)
         print(f"✓ Model saved: {model_path}")
@@ -918,10 +960,10 @@ Parameter Uncertainty:
 def run_bayesian_pipeline(training_batches, sampler_type='vi', use_wandb=True):
     """
     Complete pipeline with W&B integration and deterministic comparison
-    
+
     Args:
         training_batches: Training data batches
-        sampler_type: One of 'vi', 'ekf', 'laplace', 'sgmcmc'
+        sampler_type: One of 'vi', 'ekf', 'laplace', 'sgmcmc', 'sgld', 'sghmc', 'baoa'
         use_wandb: Whether to use Weights & Biases tracking
     """
     params = {k: v.clone().to(DEVICE) for k, v in MODEL.named_parameters()}
@@ -933,6 +975,14 @@ def run_bayesian_pipeline(training_batches, sampler_type='vi', use_wandb=True):
         config = CONFIG_EKF.copy()
     elif sampler_type == 'sgmcmc':
         config = CONFIG_SGMCMC.copy()
+    elif sampler_type == 'sgld':
+        config = CONFIG_SGLD.copy()
+    elif sampler_type == 'sghmc':
+        config = CONFIG_SGHMC.copy()
+    elif sampler_type == 'baoa':
+        config = CONFIG_BAOA.copy()
+    else:
+        raise ValueError(f"Unknown sampler type: {sampler_type}. Must be one of: 'vi', 'ekf', 'laplace', 'sgmcmc', 'sgld', 'sghmc', 'baoa'")
 
     pipeline = BayesianSamplerPipeline(
         sampler_type=sampler_type,
@@ -961,7 +1011,190 @@ def run_bayesian_pipeline(training_batches, sampler_type='vi', use_wandb=True):
 
 
 # Usage examples:
+# Variational Inference
 # state_vi, metrics_vi, eval_vi = run_bayesian_pipeline(training_batches, 'vi')
+
+# Extended Kalman Filter
 # state_ekf, metrics_ekf, eval_ekf = run_bayesian_pipeline(training_batches, 'ekf')
+
+# Laplace Approximation
 # state_laplace, metrics_laplace, eval_laplace = run_bayesian_pipeline(training_batches, 'laplace')
-# state_sgmcmc, metrics_sgmcmc, eval_sgmcmc = run_bayesian_pipeline(training_batches, 'sgmcmc')
+
+# SGMCMC Samplers (with warmup and sampling schedule)
+# state_sgld, metrics_sgld, eval_sgld = run_bayesian_pipeline(training_batches, 'sgld')
+# state_sghmc, metrics_sghmc, eval_sghmc = run_bayesian_pipeline(training_batches, 'sghmc')
+# state_baoa, metrics_baoa, eval_baoa = run_bayesian_pipeline(training_batches, 'baoa')
+# state_sgmcmc, metrics_sgmcmc, eval_sgmcmc = run_bayesian_pipeline(training_batches, 'sgmcmc')  # deprecated, use 'sghmc' instead
+
+
+def load_checkpoint_for_generation(checkpoint_path, device='cpu'):
+    """
+    Load a saved checkpoint and prepare it for text generation.
+
+    This function handles both VI-based samplers (VI, EKF, Laplace) and SGMCMC samplers (SGLD, SGHMC, BAOA).
+
+    Args:
+        checkpoint_path: Path to the saved .pt checkpoint file
+        device: Device to load tensors to ('cpu', 'cuda', 'mps')
+
+    Returns:
+        dict with:
+            - 'sampler_type': Type of sampler used
+            - 'state': Reconstructed state object (for VI-based samplers)
+            - 'collected_samples': List of parameter samples (for SGMCMC samplers)
+            - 'params': Final parameters (always available)
+            - 'model_state_dict': Model state dictionary
+
+    Example:
+        >>> checkpoint_data = load_checkpoint_for_generation('path/to/vi_model.pt')
+        >>> # For VI-based generation, use checkpoint_data['state']
+        >>> # For SGMCMC generation, use checkpoint_data['collected_samples']
+    """
+    checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
+
+    # Extract sampler type from metrics
+    sampler_type = checkpoint['complete_metrics']['sampler_type']
+
+    result = {
+        'sampler_type': sampler_type,
+        'model_state_dict': checkpoint['model_state_dict'],
+        'params': {k: v.to(device) for k, v in checkpoint['sampler_state_params'].items()},
+        'metrics': checkpoint['complete_metrics']
+    }
+
+    # For VI-based samplers, reconstruct the state
+    if sampler_type in ['vi', 'ekf', 'laplace']:
+        from posteriors.vi.diag import VIDiagState
+
+        state = VIDiagState(
+            params={k: v.to(device) for k, v in checkpoint['sampler_state_params'].items()},
+            log_sd_diag={k: v.to(device) for k, v in checkpoint['log_sd_diag'].items()},
+            opt_state=checkpoint['opt_state']
+        )
+        result['state'] = state
+        result['log_sd_diag'] = {k: v.to(device) for k, v in checkpoint['log_sd_diag'].items()}
+
+    # For SGMCMC samplers, load collected samples if available
+    elif sampler_type in ['sgld', 'sghmc', 'baoa', 'sgmcmc']:
+        if 'collected_samples' in checkpoint and checkpoint['collected_samples']:
+            result['collected_samples'] = [
+                {k: v.to(device) for k, v in sample.items()}
+                for sample in checkpoint['collected_samples']
+            ]
+            print(f"Loaded {len(result['collected_samples'])} collected samples from checkpoint")
+        else:
+            result['collected_samples'] = []
+            result['note'] = (
+                f"No collected samples found in checkpoint. "
+                f"You can use the final params as a MAP estimate for generation."
+            )
+
+    return result
+
+
+def generate_text_bayesian_sgmcmc(model, collected_samples, start_prompt, encode_fn, decode_fn,
+                                   max_new_tokens=500, temperature=1.0, top_k=None,
+                                   num_samples=None):
+    """
+    Generate text using collected SGMCMC samples.
+
+    This function is specifically for SGMCMC samplers (SGLD, SGHMC, BAOA) that collect
+    discrete parameter samples during training.
+
+    Args:
+        model: The base model
+        collected_samples: List of parameter dictionaries from SGMCMC sampling
+        start_prompt: Starting text string
+        encode_fn: Function to encode text to tokens
+        decode_fn: Function to decode tokens to text
+        max_new_tokens: Number of tokens to generate
+        temperature: Sampling temperature
+        top_k: If set, only sample from top k tokens
+        num_samples: Number of samples to use (default: all samples)
+
+    Returns:
+        generated_text: String of generated text
+        uncertainty_info: Dict with token-level uncertainties
+
+    Example:
+        >>> # After training with SGMCMC
+        >>> state, metrics, eval_results = run_bayesian_pipeline(training_batches, 'sgld')
+        >>>
+        >>> # Use collected samples for generation
+        >>> text, unc = generate_text_bayesian_sgmcmc(
+        ...     model, state.collected_samples, "To be or not to be",
+        ...     encode, decode, max_new_tokens=100, num_samples=10
+        ... )
+    """
+    import numpy as np
+    import torch.nn.functional as F
+
+    model.eval()
+    device = next(model.parameters()).device
+
+    # Select samples to use
+    if num_samples is None or num_samples > len(collected_samples):
+        param_samples = collected_samples
+    else:
+        # Use the last N samples (most converged)
+        param_samples = collected_samples[-num_samples:]
+
+    print(f"Using {len(param_samples)} SGMCMC samples for generation")
+
+    # Encode starting prompt
+    context = torch.tensor(encode_fn(start_prompt), dtype=torch.long, device=device).unsqueeze(0)
+
+    generated_tokens = []
+    token_uncertainties = []
+
+    with torch.no_grad():
+        for _ in range(max_new_tokens):
+            # Get predictions from all parameter samples
+            all_logits = []
+
+            for params in param_samples:
+                # Forward pass with current parameters
+                logits, _ = func.functional_call(model, params, (context,))
+                # Get logits for last token
+                logits = logits[:, -1, :] / temperature
+                all_logits.append(logits)
+
+            # Average logits across samples
+            avg_logits = torch.stack(all_logits).mean(dim=0)
+
+            # Calculate uncertainty (entropy of averaged predictions)
+            probs = torch.stack([F.softmax(l, dim=-1) for l in all_logits])
+            mean_probs = probs.mean(dim=0)
+            entropy = -(mean_probs * torch.log(mean_probs + 1e-8)).sum(dim=-1)
+            token_uncertainties.append(entropy.item())
+
+            # Apply top-k filtering if specified
+            if top_k is not None:
+                v, _ = torch.topk(avg_logits, min(top_k, avg_logits.size(-1)))
+                avg_logits[avg_logits < v[:, [-1]]] = -float('Inf')
+
+            # Sample next token
+            probs = F.softmax(avg_logits, dim=-1)
+            next_token = torch.multinomial(probs, num_samples=1)
+
+            generated_tokens.append(next_token.item())
+
+            # Append to context
+            context = torch.cat([context, next_token], dim=1)
+
+            # Crop context to max sequence length
+            if context.size(1) > model.config.block_size:
+                context = context[:, -model.config.block_size:]
+
+    # Decode generated tokens
+    generated_text = decode_fn(generated_tokens)
+    full_text = start_prompt + generated_text
+
+    uncertainty_info = {
+        'token_uncertainties': token_uncertainties,
+        'avg_uncertainty': np.mean(token_uncertainties),
+        'max_uncertainty': np.max(token_uncertainties),
+        'num_samples_used': len(param_samples)
+    }
+
+    return full_text, uncertainty_info

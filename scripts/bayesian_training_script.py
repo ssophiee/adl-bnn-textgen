@@ -1,6 +1,19 @@
 """
 Bayesian NanoGPT Training Script
-Run with: python train_bayesian_nanogpt.py --sampler vi --epochs 10
+
+Supported samplers:
+- vi: Variational Inference (Diagonal Gaussian)
+- ekf: Extended Kalman Filter
+- laplace: Laplace Approximation
+- sgld: Stochastic Gradient Langevin Dynamics (MCMC)
+- sghmc: Stochastic Gradient Hamiltonian Monte Carlo (MCMC)
+- baoa: Bayesian Adaptive Optimization Algorithm (MCMC)
+- sgmcmc: Generic SGHMC (deprecated, use 'sghmc' instead)
+
+Examples:
+    python scripts/bayesian_training_script.py --sampler vi --epochs 15
+    python scripts/bayesian_training_script.py --sampler sgld --eval
+    python scripts/bayesian_training_script.py --sampler sghmc --eval
 """
 import sys
 import argparse
@@ -27,12 +40,28 @@ for p in paths_to_add:
 # Module imports (now safe)
 from src.nanogpt_utils import load_model, load_tokenizer
 from src.bayesian_utils import create_training_batches, run_bayesian_pipeline
-from config import CONFIG, MODEL_PATH, META_PATH, DATA_DIR, CONFIG_SGMCMC, CONFIG_EKF
+from config import CONFIG, MODEL_PATH, META_PATH, DATA_DIR, CONFIG_SGMCMC, CONFIG_EKF, CONFIG_SGLD, CONFIG_SGHMC, CONFIG_BAOA
 from src.evaluation.nanogpt_evaluator import NanoGPTEvaluator, evaluate_splits
 
 """Bayesian NanoGPT training script with optional external evaluation.
-Usage example:
-    python scripts/bayesian_training_script.py --sampler vi --epochs 2 --eval --eval-splits val train
+
+Usage examples:
+    # Variational Inference
+    python scripts/bayesian_training_script.py --sampler vi --epochs 15 --eval --eval-splits val train
+
+    # Extended Kalman Filter
+    python scripts/bayesian_training_script.py --sampler ekf --epochs 15 --eval
+
+    # SGMCMC Samplers (with automatic warmup and sampling schedule)
+    python scripts/bayesian_training_script.py --sampler sgld --eval
+    python scripts/bayesian_training_script.py --sampler sghmc --eval
+    python scripts/bayesian_training_script.py --sampler baoa --eval
+
+    # Note: For SGMCMC samplers (sgld, sghmc, baoa), the script will automatically:
+    #   - Run 200 warmup steps
+    #   - Run 1000 sampling steps
+    #   - Collect every 10th sample (~100 samples total)
+    #   - Stop after completing the schedule (ignoring --epochs if provided)
 """
 
 
@@ -73,12 +102,11 @@ def parse_args():
     parser = argparse.ArgumentParser(
         description='Train Bayesian NanoGPT with different inference methods'
     )
-    # TODO: remove laplace option if not implemented
     parser.add_argument(
         '--sampler',
         type=str,
         default='vi',
-        choices=['vi', 'ekf', 'laplace', 'sgmcmc'],
+        choices=['vi', 'ekf', 'laplace', 'sgmcmc', 'sgld', 'sghmc', 'baoa'],
         help='Bayesian inference method to use'
     )
     
@@ -198,18 +226,37 @@ def main():
     logger.info(f"Sampler: {args.sampler.upper()}")
     logger.info(f"Log file: {log_file}")
     logger.info(f"Using W&B: {not args.no_wandb}")
+
+    # Note for SGMCMC samplers
+    if args.sampler in ['sgld', 'sghmc', 'baoa', 'sgmcmc']:
+        logger.info("\nMCMC Sampler Configuration:")
+        logger.info("  - This sampler uses warmup and sampling schedule")
+        logger.info("  - Training will automatically stop after completing the schedule")
+        logger.info("  - Check config.py for warmup_steps, sampling_steps, and thinning settings")
+
     logger.info("="*70)
     
     # Set seed
     set_seed(args.seed)
     logger.info(f"Random seed set to: {args.seed}")
     
+    # Select appropriate config based on sampler type
     if args.sampler == 'vi':
         config = CONFIG.copy()
     elif args.sampler == 'ekf':
         config = CONFIG_EKF.copy()
     elif args.sampler == 'sgmcmc':
         config = CONFIG_SGMCMC.copy()
+    elif args.sampler == 'sgld':
+        config = CONFIG_SGLD.copy()
+    elif args.sampler == 'sghmc':
+        config = CONFIG_SGHMC.copy()
+    elif args.sampler == 'baoa':
+        config = CONFIG_BAOA.copy()
+    elif args.sampler == 'laplace':
+        config = CONFIG.copy()  # Use base config for Laplace
+    else:
+        raise ValueError(f"Unknown sampler type: {args.sampler}")
 
     if args.epochs:
         config['num_epochs'] = args.epochs

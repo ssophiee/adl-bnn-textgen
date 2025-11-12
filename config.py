@@ -28,13 +28,13 @@ CONFIG = {
     
     # === Prior Configuration ===
     # TIGHTER PRIOR - This is key for preventing variance explosion
-    'prior_std': 1, 
+    'prior_std': 1,
     'prior_strength': 10.0,  # TODO: check if this is needed
-    
+
     # === Variance Initialization ===
-    'init_log_scale': -5, 
-    'max_log_scale': 2, 
-    "prior_beta": 5e-4,  # Scale the influence of the prior in the posterior
+    'init_log_scale': -5,
+    'max_log_scale': 2,
+    "prior_beta": 0.0001, # 5e-4 # Scale the influence of the prior in the posterior (reduced from 5e-4)
 
     # === Evaluation Configuration ===
     'num_samples': 10,
@@ -65,8 +65,56 @@ CONFIG_LAPLACE = {
 
 CONFIG_SGMCMC = {
     **CONFIG,
-    'learning_rate': 1e-7,  #
-    'sghmc_alpha': 0.2,    
-    'sghmc_beta': 0.0,      
+    'learning_rate': 1e-7,
+    'sghmc_alpha': 0.2,
+    'sghmc_beta': 0.0,
     'temperature': 1.0,
+    'prior_beta': 0.0001,  # Reduced prior influence
+
+    # Warm-up and sampling schedule
+    'warmup_steps': 200,
+    'sampling_steps': 1000,
+    'thinning': 10,  # Collect every 10th sample
+}
+
+CONFIG_SGLD = {
+    **CONFIG,
+    'learning_rate': 1e-6,
+    'sgld_beta': 0.0,  # Gradient noise correction
+    'temperature': 1.0,
+    'prior_beta': 0.0001,  # Reduced prior influence
+
+    # Warm-up and sampling schedule
+    'warmup_steps': 200,
+    'sampling_steps': 1000,
+    'thinning': 10,  # Collect every 10th sample
+}
+
+CONFIG_SGHMC = {
+    **CONFIG,
+    'learning_rate': 1e-7,
+    'sghmc_alpha': 0.01,  # Friction coefficient
+    'sghmc_beta': 0.0,  # Noise estimate
+    'sghmc_sigma': 1.0,  # Prior std for momenta
+    'temperature': 1.0,
+    'prior_beta': 0.0001,  # Reduced prior influence
+
+    # Warm-up and sampling schedule
+    'warmup_steps': 200,
+    'sampling_steps': 1000,
+    'thinning': 10,  # Collect every 10th sample
+}
+
+CONFIG_BAOA = {
+    **CONFIG,
+    'learning_rate': 1e-6,
+    'baoa_alpha': 0.01,  # Momentum decay
+    'baoa_sigma': 1.0,  # Prior std for momenta
+    'temperature': 1.0,
+    'prior_beta': 0.0001,  # Reduced prior influence
+
+    # Warm-up and sampling schedule
+    'warmup_steps': 200,
+    'sampling_steps': 1000,
+    'thinning': 10,  # Collect every 10th sample
 }
