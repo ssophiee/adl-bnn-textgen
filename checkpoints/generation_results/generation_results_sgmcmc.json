@@ -1,0 +1,50 @@
+{
+  "sgmcmc_example_1": {
+    "generation_params": {
+      "max_new_tokens": 600,
+      "temperature": 0.3,
+      "top_k": 10,
+      "num_samples": 10,
+      "has_collected_samples": true
+    },
+    "start_prompt": "to be, or not to be;",
+    "text": "to be, or not to be; and the state of the field,\nWhich in the senators of the straight of the prince,\nThat the strength of the sweet blood of the crown,\nWhich in the reason of the dearer of the sea\nAnd make the speech of a second common the people's son,\nAnd till the sea-simple of the fair of the device\nOf the sea-second of the world common of the soul\nOf the contractory of the common of the score,\nAnd then the duke of the world presently swords\nAnd there is not the present of the common of the common\nOf the people of the second of the presence of the common\nThat would not have ta'en a man of so seem\nThat makes u",
+    "unc_info": {
+      "avg_uncertainty": 0.41089139634129795,
+      "max_uncertainty": 2.4077982902526855,
+      "num_samples_used": 10
+    }
+  },
+  "sgmcmc_example_2": {
+    "generation_params": {
+      "max_new_tokens": 600,
+      "temperature": 0.8,
+      "top_k": 10,
+      "num_samples": 10,
+      "has_collected_samples": true
+    },
+    "start_prompt": "to be, or not to be;",
+    "text": "to be, or not to be; and see, marry, for a grave.\n\nGLOUCESTER:\nWhat shall we have an end: much we dearly doth her last,\nThe sealest and what I have sons, at her hope,\nAnd lives the gods will our breath of blood.\n\nQUEEN ELIZABETH:\nAnd thou makest me this corse!\n\nKING RICHARD III:\nNot, sir; are my tale to send our drooms\nCome to my wits supposing in her breath,\nIn our deserts, on the war, that tormer speak,\nThat thou shalt be conducted from thy company.\n\nKING RICHARD III:\nIf thou be short a weaken of thy flesh oath of day\nHave I leave thy fortune, and didst catch'd it two\nWhat I can dark to answer thee one such for",
+    "unc_info": {
+      "avg_uncertainty": 0.9775264804571725,
+      "max_uncertainty": 2.9190993309020996,
+      "num_samples_used": 10
+    }
+  },
+  "sgmcmc_example_3": {
+    "generation_params": {
+      "max_new_tokens": 600,
+      "temperature": 0.3,
+      "top_k": 10,
+      "num_samples": 20,
+      "has_collected_samples": true
+    },
+    "start_prompt": "to be, or not to be;",
+    "text": "to be, or not to be;\nTherefore be so so seen to her brother's son.\n\nKING RICHARD III:\nMy lord, then I will not see my lord.\n\nKING RICHARD III:\nWhat says the duke is not the common of my love?\n\nQUEEN ELIZABETH:\nI will not see thee a common to thee.\n\nKING RICHARD III:\nSo shall I live, and thou art so much a true man.\n\nKING RICHARD III:\nAnd thou mayst be so long to the sea of my son,\nAnd thou mayst be so much so much be so much begun.\n\nKING RICHARD III:\nI will not stay the crown of my son, the sea of my son,\nAnd there is not the world of his sons arms made be so.\n\nQUEEN ELIZABETH:\nI have said thee a true common for ",
+    "unc_info": {
+      "avg_uncertainty": 0.36343924844071057,
+      "max_uncertainty": 2.475534677505493,
+      "num_samples_used": 20
+    }
+  }
+}

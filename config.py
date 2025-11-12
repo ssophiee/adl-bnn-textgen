@@ -11,6 +11,7 @@ META_PATH = Path(os.getenv('META_PATH'))
 DATA_DIR = Path(os.getenv('DATA_DIR'))
 DEVICE = os.getenv('DEVICE', 'cpu')
 WANDB_AVAILABLE = os.getenv('WANDB_AVAILABLE', 'false').lower() == 'true'
+BNN_MODEL_PATH = Path(os.getenv('BNN_MODEL_PATH'))
 
 CONFIG = {
     # === Data Configuration ===

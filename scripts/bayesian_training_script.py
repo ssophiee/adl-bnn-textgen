@@ -308,7 +308,7 @@ def main():
         logger.info("Starting Bayesian training pipeline...")
         logger.info("="*70)
         
-        state, metrics, eval_results = run_bayesian_pipeline(
+        state, metrics, eval_results, collected_samples = run_bayesian_pipeline(
             training_batches,
             sampler_type=args.sampler,
             use_wandb=not args.no_wandb
@@ -329,6 +329,9 @@ def main():
             logger.info(f"  Bayesian Loss: {eval_results['posterior_mean']['loss']:.4f}")
             logger.info(f"  Improvement: {eval_results['posterior_mean']['improvement_over_deterministic']:+.4f}")
             logger.info(f"  Better than deterministic: {eval_results['posterior_mean']['better_than_deterministic']}")
+
+        if collected_samples:
+            logger.info(f"\nCollected {len(collected_samples)} SGMCMC samples for generation")
 
         # Optional external evaluation using NanoGPTEvaluator
         if args.eval:

@@ -34,21 +34,22 @@ GPT, GPTConfig = _import_nanogpt()
 def load_model(model_path: Optional[Path] = None, device: str = 'cpu') -> Tuple[Any, Dict[str, Any]]:
     """
     Load the trained NanoGPT model from checkpoint.
-    
+
     Args:
         model_path: Path to the model checkpoint file (uses config default if None)
-        device: Device to load the model on ('cpu' or 'cuda')
-        
+        device: Device to load the model on ('cpu', 'cuda', or 'mps')
+
     Returns:
         Tuple of (model, checkpoint_dict)
     """
     GPT, GPTConfig = _import_nanogpt()
-    
+
     if model_path is None:
         model_path = config.MODEL_PATH
-        
-    # Load checkpoint
-    checkpoint = torch.load(model_path, map_location=device)
+
+    # Load checkpoint - handle MPS device compatibility
+    # First load to CPU to avoid MPS device management issues
+    checkpoint = torch.load(model_path, map_location='cpu', weights_only=False)
     
     # Get model configuration
     model_args = checkpoint.get('model_args', {})
