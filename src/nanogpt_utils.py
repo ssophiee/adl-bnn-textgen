@@ -70,10 +70,7 @@ def load_model(model_path: Optional[Path] = None, device: str = 'cpu') -> Tuple[
     
     model.load_state_dict(state_dict)
     model.to(device)
-    
-    print("Model loaded successfully!")
-    print(f"Number of parameters: {sum(p.numel() for p in model.parameters()):,}")
-    
+        
     return model, checkpoint
 
 

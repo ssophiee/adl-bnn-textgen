@@ -1,10 +1,13 @@
 import json
+import pickle
 from datetime import datetime
 from typing import Optional, Dict, Any
-import torch 
+import torch
 from torch import func
+from pathlib import Path
+from config import MODEL_PATH, META_PATH, DEVICE
 
-def load_checkpoint_for_generation(checkpoint_path, device='cpu'):
+def load_checkpoint_for_generation(checkpoint_path, device=DEVICE):
     """
     Load a saved checkpoint and prepare it for text generation.
 
@@ -69,45 +72,85 @@ def load_checkpoint_for_generation(checkpoint_path, device='cpu'):
     return result
 
 
-def generate_text_bayesian_sgmcmc(model, collected_samples, start_prompt, encode_fn, decode_fn,
-                                   max_new_tokens=500, temperature=1.0, top_k=None,
-                                   num_samples=None):
-    """
-    Generate text using collected SGMCMC samples.
+def _load_tokenizer(meta_path):
+    """Load tokenizer from meta.pkl file."""
+    with open(meta_path, 'rb') as f:
+        meta = pickle.load(f)
 
-    This function is specifically for SGMCMC samplers (SGLD, SGHMC, BAOA) that collect
-    discrete parameter samples during training.
+    stoi, itos = meta['stoi'], meta['itos']
+    encode = lambda s: [stoi[c] for c in s]
+    decode = lambda l: ''.join([itos[i] for i in l])
+
+    return encode, decode
+
+
+def generate_text_bayesian_sgmcmc(model_path, start_prompt,
+                                   max_new_tokens=500, temperature=1.0, top_k=None,
+                                   num_samples=None, device=DEVICE, meta_path=None):
+    """
+    Generate text using collected SGMCMC samples from a trained Bayesian model.
+
+    This function loads the model, tokenizer, and collected samples, then generates text
+    with uncertainty quantification.
 
     Args:
-        model: The base model
-        collected_samples: List of parameter dictionaries from SGMCMC sampling
+        model_path: Path to the saved Bayesian model checkpoint (.pt file)
         start_prompt: Starting text string
-        encode_fn: Function to encode text to tokens
-        decode_fn: Function to decode tokens to text
         max_new_tokens: Number of tokens to generate
         temperature: Sampling temperature
         top_k: If set, only sample from top k tokens
         num_samples: Number of samples to use (default: all samples)
+        device: Device to run generation on ('cpu', 'cuda', 'mps')
+        meta_path: Path to meta.pkl file (default: auto-detect from baselines/nanogpt/)
 
     Returns:
         generated_text: String of generated text
         uncertainty_info: Dict with token-level uncertainties
 
     Example:
-        >>> # After training with SGMCMC
-        >>> pipeline = BayesianSamplerPipeline('sgld', config)
-        >>> # ... setup and training ...
-        >>> # Use collected samples for generation
         >>> text, unc = generate_text_bayesian_sgmcmc(
-        ...     model, pipeline.collected_samples, "To be or not to be",
-        ...     encode, decode, max_new_tokens=100, num_samples=10
+        ...     'checkpoints/sgld_model.pt',
+        ...     "To be or not to be",
+        ...     max_new_tokens=100,
+        ...     temperature=0.8,
+        ...     top_k=200,
+        ...     num_samples=20
         ... )
     """
     import numpy as np
     import torch.nn.functional as F
+    from baselines.nanogpt.model import GPT, GPTConfig
 
-    model.eval()
-    device = next(model.parameters()).device
+    # Load checkpoint
+    checkpoint_data = load_checkpoint_for_generation(model_path, device=device)
+
+    # Check if we have collected samples
+    if 'collected_samples' not in checkpoint_data or not checkpoint_data['collected_samples']:
+        raise ValueError(
+            f"No collected samples found in checkpoint. "
+            f"This function requires SGMCMC samples (SGLD, SGHMC, BAOA)."
+        )
+
+    collected_samples = checkpoint_data['collected_samples']
+
+    # Load model architecture
+    model_state_dict = checkpoint_data['model_state_dict']
+
+    model_args = checkpoint_data.get('model_args', {
+        'n_layer': 6, 'n_head': 6, 'n_embd': 384, 
+        'block_size': 256, 'bias': False, 'vocab_size': 65, 'dropout': 0.0
+    })
+    gptconf = GPTConfig(**model_args)
+
+    model = GPT(gptconf)
+    model.eval()  
+    model.to(DEVICE)
+    
+    # Load tokenizer
+    if meta_path is None:
+        meta_path = Path(META_PATH)
+
+    encode, decode = _load_tokenizer(meta_path)
 
     # Select samples to use
     if num_samples is None or num_samples > len(collected_samples):
@@ -119,7 +162,7 @@ def generate_text_bayesian_sgmcmc(model, collected_samples, start_prompt, encode
     print(f"Using {len(param_samples)} SGMCMC samples for generation")
 
     # Encode starting prompt
-    context = torch.tensor(encode_fn(start_prompt), dtype=torch.long, device=device).unsqueeze(0)
+    context = torch.tensor(encode(start_prompt), dtype=torch.long, device=device).unsqueeze(0)
 
     generated_tokens = []
     token_uncertainties = []
@@ -164,7 +207,7 @@ def generate_text_bayesian_sgmcmc(model, collected_samples, start_prompt, encode
                 context = context[:, -model.config.block_size:]
 
     # Decode generated tokens
-    generated_text = decode_fn(generated_tokens)
+    generated_text = decode(generated_tokens)
     full_text = start_prompt + generated_text
 
     uncertainty_info = {
@@ -178,31 +221,36 @@ def generate_text_bayesian_sgmcmc(model, collected_samples, start_prompt, encode
 
 def save_generation_result(
     start_prompt: str,
-    text: str,
-    unc_info: Dict[str, Any],
+    texts: Any,  # Can be str or list
     max_new_tokens: int,
     temperature: float,
     top_k: Optional[int],
     num_samples: int,
-    collected_samples: Optional[Any] = None,
+    model_path: Path,
     save_path: str = "generation_results.json",
-    sample_id: Optional[str] = None
+    sample_id: Optional[str] = None,
+    unc_info: Optional[Dict[str, float]] = None,
+    has_collected_samples: bool = False
 ):
     """
-    Save generation results to a JSON file.
-    
+    Unified function to save generation results to a JSON file.
+
+    Supports both standard (non-Bayesian) and Bayesian models.
+    Automatically increments sample IDs based on the prefix.
+
     Args:
         start_prompt: The prompt used to start generation
-        text: The generated text (including prompt)
-        unc_info: Uncertainty information dictionary
+        texts: Generated text(s) - can be a single string or list of strings
         max_new_tokens: Maximum new tokens parameter
         temperature: Temperature parameter
         top_k: Top-k parameter
         num_samples: Number of samples used
-        collected_samples: The collected samples (can be None if not saved)
+        model_path: Path to the model checkpoint used
         save_path: Path to JSON file (default: "generation_results.json")
-        sample_id: Optional custom ID for this sample (default: timestamp)
-    
+        sample_id:  sample ID (e.g., "standard_example", "sgmcmc_example"). If None, will use timestamp
+        unc_info: Optional dict with uncertainty metrics (avg_uncertainty, max_uncertainty, num_samples_used)
+        has_collected_samples: Whether this generation used collected samples (for Bayesian models)
+
     Returns:
         sample_id: The ID assigned to this sample
     """
@@ -212,11 +260,13 @@ def save_generation_result(
             results = json.load(f)
     except (FileNotFoundError, json.JSONDecodeError):
         results = {}
-    
-    # Generate sample ID if not provided
+
+    # Generate sample ID
     if sample_id is None:
         sample_id = datetime.now().strftime("%Y%m%d_%H%M%S")
-    
+    else:
+        pass
+
     # Create entry for this sample
     results[sample_id] = {
         "generation_params": {
@@ -224,23 +274,109 @@ def save_generation_result(
             "temperature": temperature,
             "top_k": top_k,
             "num_samples": num_samples,
-            "has_collected_samples": collected_samples is not None
+            "model_path": str(model_path),
+            "has_collected_samples": has_collected_samples
         },
-        "start_prompt": start_prompt,
-        "text": text,
-        "unc_info": {
+        "start_prompt": start_prompt
+    }
+
+    # Add texts (handle both single string and list)
+    if isinstance(texts, list):
+        results[sample_id]["texts"] = texts
+    else:
+        results[sample_id]["text"] = texts
+
+    # Add uncertainty info if provided
+    if unc_info is not None:
+        results[sample_id]["unc_info"] = {
             "avg_uncertainty": float(unc_info.get('avg_uncertainty', 0.0)),
             "max_uncertainty": float(unc_info.get('max_uncertainty', 0.0)),
             "num_samples_used": unc_info.get('num_samples_used', num_samples)
         }
-    }
-    
+
     # Save updated results
     with open(save_path, 'w') as f:
         json.dump(results, f, indent=2)
-    
-    print(f"Saved generation result with ID: {sample_id}")
-    return sample_id
+
+    output = f"Saved generation result with ID: {sample_id} to {save_path}"
+    return output
+
+
+def generate_text_standard(model_path, start_prompt,
+                          max_new_tokens=500, temperature=1.0, top_k=None,
+                          num_samples=1, device='cpu', meta_path=None):
+    """
+    Generate text using a standard (non-Bayesian) pretrained model.
+
+    This function loads the model and tokenizer, then generates text without
+    uncertainty quantification.
+
+    Args:
+        model_path: Path to the pretrained model checkpoint (.pt file)
+        start_prompt: Starting text string
+        max_new_tokens: Number of tokens to generate
+        temperature: Sampling temperature
+        top_k: If set, only sample from top k tokens
+        num_samples: Number of independent samples to generate
+        device: Device to run generation on ('cpu', 'cuda', 'mps')
+        meta_path: Path to meta.pkl file (default: auto-detect from baselines/nanogpt/)
+
+    Returns:
+        generated_texts: List of generated text strings (including prompt)
+
+    Example:
+        >>> texts = generate_text_standard(
+        ...     'checkpoints/baseline/models/ckpt.pt',
+        ...     "To be or not to be",
+        ...     max_new_tokens=100,
+        ...     temperature=0.8,
+        ...     top_k=200,
+        ...     num_samples=3
+        ... )
+    """
+    from baselines.nanogpt.model import GPT, GPTConfig
+
+    # Load model checkpoint
+    checkpoint = torch.load(model_path, map_location='cpu', weights_only=False)
+
+    gptconf = GPTConfig(**checkpoint['model_args'])
+    model = GPT(gptconf)
+
+    # Remove unwanted prefixes if any
+    state_dict = checkpoint['model']
+    unwanted_prefix = '_orig_mod.'
+    for k, v in list(state_dict.items()):
+        if k.startswith(unwanted_prefix):
+            state_dict[k[len(unwanted_prefix):]] = state_dict.pop(k)
+
+    model.load_state_dict(state_dict)
+    model.eval()
+    model.to(device)
+
+    # Load tokenizer
+    if meta_path is None:
+        # Auto-detect meta.pkl from baselines
+        meta_path = Path(META_PATH)
+
+    encode, decode = _load_tokenizer(meta_path)
+
+    generated_texts = []
+
+    with torch.no_grad():
+        for i in range(num_samples):
+            # Encode starting prompt
+            start_ids = encode(start_prompt)
+            x = torch.tensor(start_ids, dtype=torch.long, device=device)[None, ...]
+
+            # Generate text
+            y = model.generate(x, max_new_tokens=max_new_tokens,
+                             temperature=temperature, top_k=top_k)
+
+            # Decode generated tokens
+            generated_text = decode(y[0].tolist())
+            generated_texts.append(generated_text)
+
+    return generated_texts
 
 
 def load_generation_results(save_path: str = "generation_results.json") -> Dict:

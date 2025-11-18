@@ -46,5 +46,22 @@
       "max_uncertainty": 2.475534677505493,
       "num_samples_used": 20
     }
+  },
+  "20251118_124417": {
+    "generation_params": {
+      "max_new_tokens": 600,
+      "temperature": 0.8,
+      "top_k": 10,
+      "num_samples": 10,
+      "model_path": "/Users/sofianikolenko/Downloads/Projects_25/ADL/adl-bnn-textgen/checkpoints/baseline/models/baseline_model_2k.pt",
+      "has_collected_samples": true
+    },
+    "start_prompt": "to be, or not to be",
+    "text": "to be, or not to be the\nprone, see the stink, better than strange flatter'd\nat all the princies, of it is dead, that\nshall the sung fearing of the face, and in death!\n\nSecond Servant:\nAy, weep, believe thee, have thou done.\n\nSecond Servingman:\nO, that if I may be not prospassed of him!\n\nSecond Servant:\nThe soul of a gentleman, stay and their morning: one\nthe princes of men, ship the present threatening shadows of holy bodes; ward women\nbehind on the demiss of hogy walls, and if\nwe mean, were they darkness well from the wantasters.\n\nSecond Servant:\nAy, and go better, boy, what is there possessioner?\n\nServant:\nWha",
+    "unc_info": {
+      "avg_uncertainty": 0.9670539523834532,
+      "max_uncertainty": 2.928603410720825,
+      "num_samples_used": 10
+    }
   }
 }
