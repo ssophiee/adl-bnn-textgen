@@ -63,5 +63,39 @@
       "max_uncertainty": 2.928603410720825,
       "num_samples_used": 10
     }
+  },
+  "20251118_151539": {
+    "generation_params": {
+      "max_new_tokens": 600,
+      "temperature": 0.8,
+      "top_k": 10,
+      "num_samples": 10,
+      "model_path": "/Users/sofianikolenko/Downloads/Projects_25/ADL/adl-bnn-textgen/checkpoints/baseline/models/baseline_model_2k.pt",
+      "has_collected_samples": true
+    },
+    "start_prompt": "to be, or not to be",
+    "text": "to be, or not to beasts, as\nThat we mean to speak, that with me word and strike\nA prosperous tender sleeping trickers of me.\n\nSICINIUS:\nMy father\nI hope that the world are gone: then when you shall\nBe the goodly can be so steal to temport.\n\nSICINIUS:\nHe's a safe-time to speak the watch o' the singular's charge,\nWhich we be honour, will not have have seen to be to begun\nThat wise covers conceit of words weigh so return the truth.\n\nBRUTUS:\nAy, my lord.\n\nSICINIUS:\nThe state why were come to see her to the such pride\nOf all another's place.\n\nCORIOLANUS:\nI do play the place: and a vengeance of the sea\nThat the friar ",
+    "unc_info": {
+      "avg_uncertainty": 1.0209167645676984,
+      "max_uncertainty": 2.9228906631469727,
+      "num_samples_used": 10
+    }
+  },
+  "20251118_151801": {
+    "generation_params": {
+      "max_new_tokens": 600,
+      "temperature": 0.8,
+      "top_k": 10,
+      "num_samples": 10,
+      "model_path": "/Users/sofianikolenko/Downloads/Projects_25/ADL/adl-bnn-textgen/checkpoints/baseline/models/baseline_model_2k.pt",
+      "has_collected_samples": true
+    },
+    "start_prompt": "to be, or not to be",
+    "text": "to be, or not to be; by this is he as he\nhath some courage of a place and call it\naccused at all a foot-garden plack that we have made\nme tribunes to her fail of thy state order.\n\nESCALUS:\nHere is a shepherd when he makes me her sons to avoid there\nboth, and such as to the bosom of the world.\n\nELBOW:\nThou dost sand this better to complay from thy sorrow;\nhow came to scope us thy desire through's friends for a fight,\nbloody that he was made the much other to execute\nand take me well as my father's breast\ncommon of thee a most thrice and stumbling.\n\nClown:\nThy blood ways in thy friends shall be come to thy beast; I",
+    "unc_info": {
+      "avg_uncertainty": 1.0325319909065926,
+      "max_uncertainty": 3.1534790992736816,
+      "num_samples_used": 10
+    }
   }
 }

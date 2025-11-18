@@ -368,11 +368,128 @@ class BayesianSamplerPipeline:
 
         return transform, state
 
-    def run_training(self, transform, state, training_batches, 
+    def run_training(self, transform, state, training_batches,
                      single_batch_loss, log_posterior_fn):
-        """Run Bayesian training with the configured sampler and W&B tracking"""
+        """Run Bayesian training with the configured sampler"""
+
+        if self.sampler_type in ['sgmcmc', 'sgld', 'sghmc', 'baoa']:
+            # SGMCMC: Use step-based training (no epochs)
+            return self._run_mcmc_training(transform, state, training_batches,
+                                          single_batch_loss, log_posterior_fn)
+        else:
+            # VI/EKF/Laplace: Use epoch-based training
+            return self._run_epoch_training(transform, state, training_batches,
+                                           single_batch_loss, log_posterior_fn)
+
+    def _run_mcmc_training(self, transform, state, training_batches,
+                           single_batch_loss, log_posterior_fn):
+        """Step-based training for SGMCMC samplers"""
         import datetime
-        
+
+        warmup_steps = self.config.get('warmup_steps', 200)
+        sampling_steps = self.config.get('sampling_steps', 1000)
+        thinning = self.config.get('thinning', 10)
+        total_steps = warmup_steps + sampling_steps
+
+        print(f"\n{'='*60}")
+        print(f"Starting {self.sampler_type.upper()} Sampling")
+        print(f"{'='*60}")
+        print(f"  Warmup steps: {warmup_steps}")
+        print(f"  Sampling steps: {sampling_steps}")
+        print(f"  Total steps: {total_steps}")
+        print(f"  Thinning: {thinning}")
+        print(f"  Expected samples: {sampling_steps // thinning}")
+        print(f"{'='*60}\n")
+
+        collected_samples = []
+        start_time = datetime.datetime.now()
+
+        # Lists to track losses during training
+        step_losses = []
+        step_log_posts = []
+
+        # Create infinite batch iterator (cycles through batches)
+        def batch_generator():
+            while True:
+                for batch in training_batches:
+                    yield batch
+
+        batch_iter = batch_generator()
+
+        for step in range(total_steps):
+            batch = next(batch_iter)
+
+            # Update
+            state, aux = transform.update(state, batch)
+
+            # Collect samples after warmup with thinning
+            if step >= warmup_steps:
+                steps_after_warmup = step - warmup_steps
+                if steps_after_warmup % thinning == 0:
+                    sample = {k: v.clone().detach() for k, v in state.params.items()}
+                    collected_samples.append(sample)
+
+                    if len(collected_samples) % 10 == 0:
+                        print(f"  Step {step}/{total_steps} - "
+                              f"Samples collected: {len(collected_samples)}")
+
+            # Log metrics periodically
+            if step % 50 == 0:
+                with torch.no_grad():
+                    current_loss = single_batch_loss(state.params, batch)
+                    current_log_post, _ = log_posterior_fn(state.params, batch)
+
+                    # Store losses for summary
+                    step_losses.append(current_loss.item())
+                    step_log_posts.append(current_log_post.item())
+
+                    print(f"  [{step:4d}/{total_steps}] "
+                          f"Loss: {current_loss.item():.4f} | "
+                          f"Log Post: {current_log_post.item():.4f}")
+
+                    if self.use_wandb:
+                        wandb.log({
+                            'step': step,
+                            'loss': current_loss.item(),
+                            'log_posterior': current_log_post.item(),
+                            'phase': 'warmup' if step < warmup_steps else 'sampling',
+                            'samples_collected': len(collected_samples)
+                        }, step=step)
+
+            # Cleanup
+            if step % 10 == 0:
+                gc.collect()
+                torch.cuda.empty_cache() if torch.cuda.is_available() else None
+
+        total_time = (datetime.datetime.now() - start_time).total_seconds()
+
+        print(f"\n{'='*60}")
+        print(f"MCMC Sampling Complete!")
+        print(f"  Total samples collected: {len(collected_samples)}")
+        print(f"  Total time: {total_time:.2f}s")
+        print(f"{'='*60}\n")
+
+        # Store samples
+        self.collected_samples = [
+            {k: v.to(DEVICE) for k, v in sample.items()}
+            for sample in collected_samples
+        ]
+
+        # Store metrics
+        self.metrics['total_steps'] = total_steps
+        self.metrics['samples_collected'] = len(collected_samples)
+        self.metrics['training_losses'] = step_losses
+        self.metrics['log_posterior_values'] = step_log_posts
+        # Create dummy epoch_times for compatibility with summary report
+        self.metrics['epoch_times'] = [total_time]
+
+        return state, self.metrics
+
+    def _run_epoch_training(self, transform, state, training_batches,
+                            single_batch_loss, log_posterior_fn):
+        """Epoch-based training for VI/EKF/Laplace"""
+        import datetime
+
         print(f"\n{'='*60}")
         print(f"Starting Bayesian Training with {self.sampler_type.upper()}")
         print(f"{'='*60}")
@@ -381,21 +498,6 @@ class BayesianSamplerPipeline:
         print(f"  - Batches per epoch: {len(training_batches)}")
         print(f"  - Total iterations: {self.config['num_epochs'] * len(training_batches)}")
         print(f"{'='*60}\n")
-        
-        # For SGMCMC samplers: collect samples during training with warmup
-        if self.sampler_type in ['sgmcmc', 'sgld', 'sghmc', 'baoa']:
-            collected_samples = []
-            warmup_steps = self.config.get('warmup_steps', 200)
-            sampling_steps = self.config.get('sampling_steps', 1000)
-            thinning = self.config.get('thinning', 10)
-            total_mcmc_steps = warmup_steps + sampling_steps
-
-            print(f"\nMCMC Sampling Configuration:")
-            print(f"  - Warmup steps: {warmup_steps}")
-            print(f"  - Sampling steps: {sampling_steps}")
-            print(f"  - Total steps: {total_mcmc_steps}")
-            print(f"  - Thinning: Collect every {thinning} samples")
-            print(f"  - Expected samples: ~{sampling_steps // thinning}\n")
 
         start_time = datetime.datetime.now()
         global_step = 0
@@ -413,22 +515,6 @@ class BayesianSamplerPipeline:
                     print(f"  Processing batch {batch_idx + 1}/{len(training_batches)}...")
                     state, aux = transform.update(state, batch)
                     print(f"  Batch processed successfully.")
-
-                    # For SGMCMC samplers: collect samples after warmup with thinning
-                    if self.sampler_type in ['sgmcmc', 'sgld', 'sghmc', 'baoa']:
-                        if global_step >= warmup_steps:
-                            # We're in the sampling phase
-                            steps_after_warmup = global_step - warmup_steps
-                            if steps_after_warmup % thinning == 0 and steps_after_warmup < sampling_steps:
-                                # Store a copy of current params as a sample
-                                sample = {k: v.clone().detach() for k, v in state.params.items()}
-                                collected_samples.append(sample)
-                                print(f"    ✓ Sample #{len(collected_samples)} collected (step {global_step})")
-
-                        # Stop training if we've completed warmup + sampling
-                        if global_step >= total_mcmc_steps:
-                            print(f"\n✓ Completed {total_mcmc_steps} MCMC steps (warmup + sampling)")
-                            break
 
                     if self.sampler_type in ['vi']:
                         # For VI and EKF, state contains log_sd_diag (std in log space)
@@ -508,14 +594,6 @@ class BayesianSamplerPipeline:
                 print(f"  ✗ Epoch failed - no successful batches")
                 break
 
-            # For SGMCMC samplers: check if we should stop training
-            if self.sampler_type in ['sgmcmc', 'sgld', 'sghmc', 'baoa']:
-                if global_step >= total_mcmc_steps:
-                    print(f"\n{'='*60}")
-                    print(f"MCMC sampling complete!")
-                    print(f"{'='*60}\n")
-                    break
-
             print()
         
         total_time = (datetime.datetime.now() - start_time).total_seconds()
@@ -532,18 +610,6 @@ class BayesianSamplerPipeline:
             wandb.summary['final_loss'] = self.metrics['training_losses'][-1]
             wandb.summary['final_log_posterior'] = self.metrics['log_posterior_values'][-1]
             wandb.summary['total_training_time'] = total_time
-        
-        # Store collected samples for SGMCMC samplers
-        # Note: State objects are immutable NamedTuples, so we store samples separately
-        if self.sampler_type in ['sgmcmc', 'sgld', 'sghmc', 'baoa']:
-            # Move samples back to device for evaluation
-            collected_samples_device = []
-            for sample in collected_samples:
-                sample_device = {k: v.to(DEVICE) for k, v in sample.items()}
-                collected_samples_device.append(sample_device)
-
-            self.collected_samples = collected_samples_device
-            print(f"\n✓ Collected {len(collected_samples_device)} {self.sampler_type.upper()} samples total")
 
         return state, self.metrics
     
