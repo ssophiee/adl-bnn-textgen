@@ -27,18 +27,6 @@
     "thinning": 10
   },
   "training_metrics": {
-    "training_losses": [
-      1.1319938970327377,
-      1.1356906210339588
-    ],
-    "log_posterior_values": [
-      -12307.34634921875,
-      -12344.31415845788
-    ],
-    "epoch_times": [
-      75.300233,
-      70.580104
-    ],
     "sampler_specific_metrics": [
       {
         "epoch": 0,
@@ -51,28 +39,9 @@
     ]
   },
   "timestamp": "2025-11-12T14:23:31.793091",
-  "evaluation": {
-    "deterministic": {
-      "loss": 0.542256772518158,
-      "perplexity": 1.7198837995529175
-    },
-    "posterior_mean": {
-      "loss": 0.5448229312896729,
-      "perplexity": 1.7243030071258545,
-      "improvement_over_deterministic": -0.0025661587715148926,
-      "better_than_deterministic": false
-    },
-    "posterior_sampling": {
-      "mean_loss": 0.5447668313980103,
-      "std_loss": 2.6687613448255572e-05,
-      "min_loss": 0.5447289943695068,
-      "max_loss": 0.5448044538497925,
-      "num_samples": 5
-    },
-    "uncertainty": {
-      "avg_predictive_entropy": 0.7924102544784546,
-      "max_predictive_entropy": 2.168022871017456,
-      "min_predictive_entropy": 0.006734771654009819
-    }
+  "uncertainty": {
+    "avg_predictive_entropy": 0.7924102544784546,
+    "max_predictive_entropy": 2.168022871017456,
+    "min_predictive_entropy": 0.006734771654009819
   }
 }

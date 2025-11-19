@@ -2,8 +2,8 @@
 ======================================================================
 BAYESIAN MODEL TRAINING SUMMARY
 ======================================================================
-Sampler: BAOA
-Generated: 2025-11-12T14:23:31.793091
+Sampler: SGHMC
+Generated: 2025-11-19T12:02:19.570269
 
 CONFIGURATION:
 ----------------------------------------------------------------------
@@ -11,7 +11,7 @@ CONFIGURATION:
   train_samples: 10000
   max_seq_length: 128
   num_epochs: 15
-  learning_rate: 1e-06
+  learning_rate: 1e-05
   temperature: 1.0
   vi_n_samples: 1
   prior_std: 1
@@ -26,17 +26,17 @@ CONFIGURATION:
   wandb_project: bayesian-nanogpt
   weight_decay: 0.01
   kl_weight: 1.0
-  baoa_alpha: 0.01
-  baoa_sigma: 1.0
+  sghmc_alpha: 0.1
+  sghmc_beta: 0.0
+  sghmc_sigma: 1.0
   warmup_steps: 200
   sampling_steps: 1000
   thinning: 10
 
-EVALUATION RESULTS:
+TRAINING SUMMARY:
 ----------------------------------------------------------------------
-
-Uncertainty Quantification:
-  Avg Predictive Entropy: 0.7924
-  Entropy Range: [0.0067, 2.1680]
+Total Steps: 1200
+Samples Collected: 100
+Avg Momentum: 0.798392
 
 ======================================================================

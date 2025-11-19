@@ -13,7 +13,7 @@ import posteriors
 import torch.nn.functional as F
 from pathlib import Path
 from torch.optim.lr_scheduler import CosineAnnealingLR
-from config import DEVICE, CONFIG, MODEL_PATH, WANDB_AVAILABLE, CONFIG_EKF, CONFIG_SGMCMC, CONFIG_SGLD, CONFIG_SGHMC, CONFIG_BAOA
+from config import DEVICE, CONFIG, MODEL_PATH, WANDB_AVAILABLE, CONFIG_EKF, CONFIG_SGLD, CONFIG_SGHMC, CONFIG_BAOA
 from src.nanogpt_utils import load_model
 MODEL, checkpoint = load_model(Path(MODEL_PATH), DEVICE) # TODO: pass device
 INITIAL_PARAMS = {k: v.clone().to(DEVICE) for k, v in MODEL.named_parameters()}
@@ -138,14 +138,14 @@ def evaluate_deterministic_model(model, test_batch):
 class BayesianSamplerPipeline:
     """Unified pipeline for different Bayesian inference methods with W&B tracking"""
 
-    AVAILABLE_SAMPLERS = ['vi', 'ekf', 'laplace', 'sgmcmc', 'sgld', 'sghmc', 'baoa']
+    AVAILABLE_SAMPLERS = ['vi', 'ekf', 'laplace', 'sgld', 'sghmc', 'baoa']
     
     def __init__(self, sampler_type: str, config: dict, use_wandb: bool = True):
         """
         Initialize the Bayesian sampler pipeline
         
         Args:
-            sampler_type: One of 'vi', 'ekf', 'laplace', 'sgmcmc'
+            sampler_type: One of 'vi', 'ekf', 'laplace', 'sgld', 'sghmc', 'baoa'
             config: Configuration dictionary with training parameters
             use_wandb: Whether to use Weights & Biases for tracking
         """
@@ -200,8 +200,6 @@ class BayesianSamplerPipeline:
             return self._setup_ekf(log_posterior_fn, params)
         elif self.sampler_type == 'laplace':
             return self._setup_laplace(log_posterior_fn, params)
-        elif self.sampler_type == 'sgmcmc':
-            return self._setup_sgmcmc(log_posterior_fn, params)
         elif self.sampler_type == 'sgld':
             return self._setup_sgld(log_posterior_fn, params)
         elif self.sampler_type == 'sghmc':
@@ -272,28 +270,6 @@ class BayesianSamplerPipeline:
         
         return transform, state
     
-    def _setup_sgmcmc(self, log_posterior_fn, params):
-        """Setup Stochastic Gradient MCMC (SGHMC)"""
-        transform = posteriors.sgmcmc.sghmc.build(
-            log_posterior=log_posterior_fn,
-            lr=self.config.get('learning_rate', 1e-3),
-            alpha=self.config.get('sghmc_alpha', 0.01),      # Friction coefficient
-            beta=self.config.get('sghmc_beta', 0.0),         # Noise estimate (0 = no correction)
-            sigma=self.config.get('sghmc_sigma', 1.0),       # Prior std for momenta
-            temperature=self.config.get('temperature', 1.0),  # Posterior tempering
-            momenta=None  # Will be initialized automatically
-
-        )
-        
-        state = transform.init(params)
-        
-        print(f"SGMCMC (SGHMC) configured with:")
-        print(f"- Learning rate: {self.config.get('learning_rate', 1e-3)}")
-        print(f"- Alpha (momentum decay): {self.config.get('sgmcmc_alpha', 0.01)}")
-        print(f"- Beta (noise coefficient): {self.config.get('sgmcmc_beta', 0.0)}")
-        
-        return transform, state
-
     def _setup_sgld(self, log_posterior_fn, params):
         """Setup Stochastic Gradient Langevin Dynamics (SGLD)"""
 
@@ -372,7 +348,7 @@ class BayesianSamplerPipeline:
                      single_batch_loss, log_posterior_fn):
         """Run Bayesian training with the configured sampler"""
 
-        if self.sampler_type in ['sgmcmc', 'sgld', 'sghmc', 'baoa']:
+        if self.sampler_type in ['sgld', 'sghmc', 'baoa']:
             # SGMCMC: Use step-based training (no epochs)
             return self._run_mcmc_training(transform, state, training_batches,
                                           single_batch_loss, log_posterior_fn)
@@ -624,7 +600,7 @@ class BayesianSamplerPipeline:
                 ])).item()
                 metrics['avg_parameter_std'] = avg_std
         
-        if self.sampler_type in ['sgmcmc', 'sgld', 'sghmc', 'baoa']:
+        if self.sampler_type in ['sgld', 'sghmc', 'baoa']:
             if hasattr(state, 'momentum') or hasattr(state, 'momenta'):
                 momentum_dict = getattr(state, 'momentum', None) or getattr(state, 'momenta', None)
                 if momentum_dict:
@@ -639,66 +615,70 @@ class BayesianSamplerPipeline:
         """
         Evaluate model predictions with uncertainty quantification, W&B logging,
         and comparison against deterministic model
-        
+
         Args:
             state: Bayesian state from training
             model: Original model for deterministic comparison
             test_batch: Test data (x, y)
             num_samples: Number of posterior samples
-        
+
         Returns:
             dict with evaluation results including deterministic comparison
         """
         print(f"\n{'='*60}")
         print(f"Evaluating {self.sampler_type.upper()} Predictions")
         print(f"{'='*60}")
-        
+
         x_test, y_test = test_batch
         results = {}
-        
+
         # State is VIDiagState or similar named tuple with .params attribute
         current_params = state.params
-        
-        # 0. Deterministic model evaluation
-        print("\n0. Deterministic Model (Original):")
-        deterministic_results = evaluate_deterministic_model(model, test_batch)
-        results['deterministic'] = deterministic_results
-        
-        print(f"  Loss: {deterministic_results['loss']:.4f}")
-        print(f"  Perplexity: {deterministic_results['perplexity']:.4f}")
-        
-        # 1. Posterior mean prediction
-        print("\n1. Bayesian Posterior Mean Prediction:")
-        with torch.no_grad():
-            logits, _ = func.functional_call(model, current_params, (x_test,))
-            loss = F.cross_entropy(
-                logits.view(-1, logits.size(-1)),
-                y_test.view(-1)
-            )
-            perplexity = torch.exp(loss)
-            
-            # Calculate improvement
-            loss_improvement = deterministic_results['loss'] - loss.item()
-            better_than_deterministic = loss_improvement > 0
-            
-            results['posterior_mean'] = {
-                'loss': loss.item(),
-                'perplexity': perplexity.item(),
-                'improvement_over_deterministic': loss_improvement,
-                'better_than_deterministic': better_than_deterministic
-            }
-            
-            print(f"  Loss: {loss.item():.4f}")
-            print(f"  Perplexity: {perplexity.item():.4f}")
-            print(f"  Improvement over deterministic: {loss_improvement:+.4f}")
-            print(f"  {'✓ Better' if better_than_deterministic else '✗ Worse'} than deterministic")
-        
+
+        # For MCMC samplers, only compute uncertainty metrics
+        is_mcmc = self.sampler_type in ['sgld', 'sghmc', 'baoa']
+
+        if not is_mcmc:
+            # 0. Deterministic model evaluation
+            print("\n0. Deterministic Model (Original):")
+            deterministic_results = evaluate_deterministic_model(model, test_batch)
+            results['deterministic'] = deterministic_results
+
+            print(f"  Loss: {deterministic_results['loss']:.4f}")
+            print(f"  Perplexity: {deterministic_results['perplexity']:.4f}")
+
+            # 1. Posterior mean prediction
+            print("\n1. Bayesian Posterior Mean Prediction:")
+            with torch.no_grad():
+                logits, _ = func.functional_call(model, current_params, (x_test,))
+                loss = F.cross_entropy(
+                    logits.view(-1, logits.size(-1)),
+                    y_test.view(-1)
+                )
+                perplexity = torch.exp(loss)
+
+                # Calculate improvement
+                loss_improvement = deterministic_results['loss'] - loss.item()
+                better_than_deterministic = loss_improvement > 0
+
+                results['posterior_mean'] = {
+                    'loss': loss.item(),
+                    'perplexity': perplexity.item(),
+                    'improvement_over_deterministic': loss_improvement,
+                    'better_than_deterministic': better_than_deterministic
+                }
+
+                print(f"  Loss: {loss.item():.4f}")
+                print(f"  Perplexity: {perplexity.item():.4f}")
+                print(f"  Improvement over deterministic: {loss_improvement:+.4f}")
+                print(f"  {'✓ Better' if better_than_deterministic else '✗ Worse'} than deterministic")
+
         # 2. Multiple posterior samples
-        print(f"\n2. Posterior Sampling ({num_samples} samples):")
+        print(f"\n{'Predictive Uncertainty' if is_mcmc else '2. Posterior Sampling'} ({num_samples} samples):")
         sample_losses = []
         posterior_samples = []
         
-        if self.sampler_type in ['sgmcmc', 'sgld', 'sghmc', 'baoa']:
+        if self.sampler_type in ['sgld', 'sghmc', 'baoa']:
             if len(self.collected_samples) > 0:
                 # Use last N samples from training
                 samples_to_use = self.collected_samples[-num_samples:]
@@ -743,53 +723,54 @@ class BayesianSamplerPipeline:
                     sample_losses.append(sample_loss.item())
                     posterior_samples.append(sample_logits)
         
-        results['posterior_sampling'] = {
-            'mean_loss': np.mean(sample_losses),
-            'std_loss': np.std(sample_losses),
-            'min_loss': np.min(sample_losses),
-            'max_loss': np.max(sample_losses),
-            'num_samples': num_samples
-        }
-        
-        print(f"  Mean Loss: {np.mean(sample_losses):.4f} ± {np.std(sample_losses):.4f}")
-        print(f"  Range: [{np.min(sample_losses):.4f}, {np.max(sample_losses):.4f}]")
-        
-        # 3. Predictive uncertainty
-        print(f"\n3. Predictive Uncertainty:")
+        # Only save posterior_sampling metrics for non-MCMC samplers
+        if not is_mcmc:
+            results['posterior_sampling'] = {
+                'mean_loss': np.mean(sample_losses),
+                'std_loss': np.std(sample_losses),
+                'min_loss': np.min(sample_losses),
+                'max_loss': np.max(sample_losses),
+                'num_samples': num_samples
+            }
+            print(f"  Mean Loss: {np.mean(sample_losses):.4f} ± {np.std(sample_losses):.4f}")
+            print(f"  Range: [{np.min(sample_losses):.4f}, {np.max(sample_losses):.4f}]")
+
+        # Predictive uncertainty (for all sampler types)
+        print(f"\n{'Calculating Uncertainty:' if is_mcmc else '3. Predictive Uncertainty:'}")
         stacked_logits = torch.stack(posterior_samples)
         pred_probs = F.softmax(stacked_logits, dim=-1)
         mean_probs = pred_probs.mean(dim=0)
-        
+
         pred_entropy = -(mean_probs * torch.log(mean_probs + 1e-8)).sum(dim=-1)
         avg_uncertainty = pred_entropy.mean().item()
-        
+
         results['uncertainty'] = {
             'avg_predictive_entropy': avg_uncertainty,
             'max_predictive_entropy': pred_entropy.max().item(),
             'min_predictive_entropy': pred_entropy.min().item()
         }
-        
+
         print(f"  Average Entropy: {avg_uncertainty:.4f}")
         print(f"  Range: [{pred_entropy.min().item():.4f}, {pred_entropy.max().item():.4f}]")
-        
-        # 4. Parameter uncertainty (if available)
-        if hasattr(state, 'log_scale') or hasattr(state, 'log_sd_diag'):
+
+        # 4. Parameter uncertainty (only for VI/EKF/Laplace, not MCMC)
+        if not is_mcmc and (hasattr(state, 'log_scale') or hasattr(state, 'log_sd_diag')):
             print(f"\n4. Parameter Uncertainty:")
             total_params = 0
             total_std = 0
-            
-            
+
+
             # Handle different naming conventions
             log_scale_attr = 'log_scale' if hasattr(state, 'log_scale') else 'log_sd_diag'
             log_scale_dict = getattr(state, log_scale_attr)
-            
+
             for name in state.params:
                 param_std = torch.exp(log_scale_dict[name]).mean().item()
                 param_count = state.params[name].numel()
-                
+
                 total_params += param_count
                 total_std += param_std * param_count
-            
+
             if total_params > 0:
                 avg_param_std = total_std / total_params
                 results['parameter_uncertainty'] = {
@@ -799,24 +780,36 @@ class BayesianSamplerPipeline:
         
         # Log evaluation results to W&B
         if self.use_wandb:
-            wandb.log({
-                'eval/deterministic_loss': results['deterministic']['loss'],
-                'eval/deterministic_perplexity': results['deterministic']['perplexity'],
-                'eval/posterior_mean_loss': results['posterior_mean']['loss'],
-                'eval/posterior_mean_perplexity': results['posterior_mean']['perplexity'],
-                'eval/improvement_over_deterministic': results['posterior_mean']['improvement_over_deterministic'],
-                'eval/sampling_mean_loss': results['posterior_sampling']['mean_loss'],
-                'eval/sampling_std_loss': results['posterior_sampling']['std_loss'],
-                'eval/avg_predictive_entropy': results['uncertainty']['avg_predictive_entropy']
-            })
-            
-            wandb.summary.update({
-                'eval_deterministic_loss': results['deterministic']['loss'],
-                'eval_bayesian_loss': results['posterior_mean']['loss'],
-                'eval_improvement': results['posterior_mean']['improvement_over_deterministic'],
-                'eval_perplexity': results['posterior_mean']['perplexity'],
-                'eval_uncertainty': results['uncertainty']['avg_predictive_entropy']
-            })
+            if is_mcmc:
+                # For MCMC, only log uncertainty metrics
+                wandb.log({
+                    'eval/avg_predictive_entropy': results['uncertainty']['avg_predictive_entropy'],
+                    'eval/max_predictive_entropy': results['uncertainty']['max_predictive_entropy'],
+                    'eval/min_predictive_entropy': results['uncertainty']['min_predictive_entropy']
+                })
+                wandb.summary.update({
+                    'eval_uncertainty': results['uncertainty']['avg_predictive_entropy']
+                })
+            else:
+                # For VI/EKF, log all metrics
+                wandb.log({
+                    'eval/deterministic_loss': results['deterministic']['loss'],
+                    'eval/deterministic_perplexity': results['deterministic']['perplexity'],
+                    'eval/posterior_mean_loss': results['posterior_mean']['loss'],
+                    'eval/posterior_mean_perplexity': results['posterior_mean']['perplexity'],
+                    'eval/improvement_over_deterministic': results['posterior_mean']['improvement_over_deterministic'],
+                    'eval/sampling_mean_loss': results['posterior_sampling']['mean_loss'],
+                    'eval/sampling_std_loss': results['posterior_sampling']['std_loss'],
+                    'eval/avg_predictive_entropy': results['uncertainty']['avg_predictive_entropy']
+                })
+
+                wandb.summary.update({
+                    'eval_deterministic_loss': results['deterministic']['loss'],
+                    'eval_bayesian_loss': results['posterior_mean']['loss'],
+                    'eval_improvement': results['posterior_mean']['improvement_over_deterministic'],
+                    'eval_perplexity': results['posterior_mean']['perplexity'],
+                    'eval_uncertainty': results['uncertainty']['avg_predictive_entropy']
+                })
         
         print(f"{'='*60}\n")
         
@@ -841,15 +834,42 @@ class BayesianSamplerPipeline:
         print(f"{'='*60}")
         
         # Prepare complete metrics
-        complete_metrics = {
-            'sampler_type': self.sampler_type,
-            'config': self.config,
-            'training_metrics': self.metrics,
-            'timestamp': datetime.datetime.now().isoformat()
-        }
-        
-        if evaluation_results:
-            complete_metrics['evaluation'] = evaluation_results
+        # For MCMC samplers, only save relevant metrics
+        if self.sampler_type in ['sgld', 'sghmc', 'baoa']:
+            # Extract MCMC-specific training metrics
+            mcmc_training_metrics = {
+                'total_steps': self.metrics.get('total_steps', 0),
+                'samples_collected': self.metrics.get('samples_collected', 0)
+            }
+
+            # Extract momentum statistics if available
+            if hasattr(state, 'momentum') or hasattr(state, 'momenta'):
+                momentum_dict = getattr(state, 'momentum', None) or getattr(state, 'momenta', None)
+                if momentum_dict:
+                    avg_momentum = torch.mean(torch.stack([
+                        torch.abs(v).mean() for v in momentum_dict.values()
+                    ])).item()
+                    mcmc_training_metrics['avg_momentum'] = avg_momentum
+
+            complete_metrics = {
+                'sampler_type': self.sampler_type,
+                'config': self.config,
+                'training_metrics': mcmc_training_metrics,
+                'timestamp': datetime.datetime.now().isoformat()
+            }
+            # Only include uncertainty metrics from evaluation
+            if evaluation_results and 'uncertainty' in evaluation_results:
+                complete_metrics['uncertainty'] = evaluation_results['uncertainty']
+        else:
+            # For VI/EKF samplers, keep all metrics
+            complete_metrics = {
+                'sampler_type': self.sampler_type,
+                'config': self.config,
+                'training_metrics': self.metrics,
+                'timestamp': datetime.datetime.now().isoformat()
+            }
+            if evaluation_results:
+                complete_metrics['evaluation'] = evaluation_results
         
         # State is VIDiagState or similar named tuple with .params attribute
         current_params = state.params
@@ -899,7 +919,7 @@ class BayesianSamplerPipeline:
             }
 
         # Save collected samples for SGMCMC samplers
-        if self.sampler_type in ['sgmcmc', 'sgld', 'sghmc', 'baoa']:
+        if self.sampler_type in ['sgld', 'sghmc', 'baoa']:
             if self.collected_samples:
                 saved_state['collected_samples'] = [
                     {k: v.cpu() for k, v in sample.items()}
@@ -961,8 +981,22 @@ CONFIGURATION:
 """
         for key, value in metrics['config'].items():
             report += f"  {key}: {value}\n"
-        
-        report += f"""
+
+        # Training summary differs based on sampler type
+        if self.sampler_type in ['sgld', 'sghmc', 'baoa']:
+            # MCMC sampler metrics
+            training_metrics = metrics['training_metrics']
+            report += f"""
+TRAINING SUMMARY:
+{'-'*70}
+Total Steps: {training_metrics.get('total_steps', 'N/A')}
+Samples Collected: {training_metrics.get('samples_collected', 'N/A')}
+"""
+            if 'avg_momentum' in training_metrics:
+                report += f"Avg Momentum: {training_metrics['avg_momentum']:.6f}\n"
+        else:
+            # VI/EKF sampler metrics
+            report += f"""
 TRAINING SUMMARY:
 {'-'*70}
 Total Epochs: {len(metrics['training_metrics']['training_losses'])}
@@ -1033,7 +1067,7 @@ def run_bayesian_pipeline(training_batches, sampler_type='vi', use_wandb=True):
 
     Args:
         training_batches: Training data batches
-        sampler_type: One of 'vi', 'ekf', 'laplace', 'sgmcmc', 'sgld', 'sghmc', 'baoa'
+        sampler_type: One of 'vi', 'ekf', 'laplace', 'sgld', 'sghmc', 'baoa'
         use_wandb: Whether to use Weights & Biases tracking
 
     Returns:
@@ -1049,8 +1083,6 @@ def run_bayesian_pipeline(training_batches, sampler_type='vi', use_wandb=True):
         config = CONFIG.copy()
     elif sampler_type == 'ekf':
         config = CONFIG_EKF.copy()
-    elif sampler_type == 'sgmcmc':
-        config = CONFIG_SGMCMC.copy()
     elif sampler_type == 'sgld':
         config = CONFIG_SGLD.copy()
     elif sampler_type == 'sghmc':
@@ -1058,7 +1090,7 @@ def run_bayesian_pipeline(training_batches, sampler_type='vi', use_wandb=True):
     elif sampler_type == 'baoa':
         config = CONFIG_BAOA.copy()
     else:
-        raise ValueError(f"Unknown sampler type: {sampler_type}. Must be one of: 'vi', 'ekf', 'laplace', 'sgmcmc', 'sgld', 'sghmc', 'baoa'")
+        raise ValueError(f"Unknown sampler type: {sampler_type}. Must be one of: 'vi', 'ekf', 'laplace', 'sgld', 'sghmc', 'baoa'")
 
     pipeline = BayesianSamplerPipeline(
         sampler_type=sampler_type,

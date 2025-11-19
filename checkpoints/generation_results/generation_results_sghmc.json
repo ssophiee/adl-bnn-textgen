@@ -1,0 +1,19 @@
+{
+  "20251119_150739": {
+    "generation_params": {
+      "max_new_tokens": 600,
+      "temperature": 0.8,
+      "top_k": 10,
+      "num_samples": 10,
+      "model_path": "/Users/sofianikolenko/Downloads/Projects_25/ADL/adl-bnn-textgen/checkpoints/samplers/sghmc_sampler/run_20251119-120219/sghmc_model.pt",
+      "has_collected_samples": true
+    },
+    "start_prompt": "to be, or not to be;",
+    "text": "to be, or not to be;\nOr not once for so fastion by myself,\nFor the common of the trimit of the scales of greason\nAs the same is offer, to the rest and make your flowers.\nHad you and afoot the fame of your monacces of your backs?\nI must not spoke your face.\n\nCORIOLANUS:\nSir, your lord, be a satisfied and by a blood;\n'Tis your living pardon words so barriage and back.\n\nSecond Citizen:\nMark, you may talk of me?\n\nCORIOLANUS:\nNot amongstors.\n\nCORIOLANUS:\nHe hath beseech'd he been too less or a tale.\n\nSecond Centleman:\nI shall see the general of word all the spirit\nWhough is a present to make occasion, and ask\nWho shal",
+    "unc_info": {
+      "avg_uncertainty": 0.9873162429942931,
+      "max_uncertainty": 2.9960365295410156,
+      "num_samples_used": 10
+    }
+  }
+}

@@ -8,7 +8,6 @@ Supported samplers:
 - sgld: Stochastic Gradient Langevin Dynamics (MCMC)
 - sghmc: Stochastic Gradient Hamiltonian Monte Carlo (MCMC)
 - baoa: Bayesian Adaptive Optimization Algorithm (MCMC)
-- sgmcmc: Generic SGHMC (deprecated, use 'sghmc' instead)
 
 Examples:
     python scripts/bayesian_training_script.py --sampler vi --epochs 15
@@ -40,7 +39,7 @@ for p in paths_to_add:
 # Module imports (now safe)
 from src.nanogpt_utils import load_model, load_tokenizer
 from src.bayesian_utils import create_training_batches, run_bayesian_pipeline
-from config import CONFIG, MODEL_PATH, META_PATH, DATA_DIR, CONFIG_SGMCMC, CONFIG_EKF, CONFIG_SGLD, CONFIG_SGHMC, CONFIG_BAOA
+from config import CONFIG, MODEL_PATH, META_PATH, DATA_DIR, CONFIG_EKF, CONFIG_SGLD, CONFIG_SGHMC, CONFIG_BAOA
 from src.evaluation.nanogpt_evaluator import NanoGPTEvaluator, evaluate_splits
 
 """Bayesian NanoGPT training script with optional external evaluation.
@@ -106,7 +105,7 @@ def parse_args():
         '--sampler',
         type=str,
         default='vi',
-        choices=['vi', 'ekf', 'laplace', 'sgmcmc', 'sgld', 'sghmc', 'baoa'],
+        choices=['vi', 'ekf', 'laplace', 'sgld', 'sghmc', 'baoa'],
         help='Bayesian inference method to use'
     )
     
@@ -227,8 +226,8 @@ def main():
     logger.info(f"Log file: {log_file}")
     logger.info(f"Using W&B: {not args.no_wandb}")
 
-    # Note for SGMCMC samplers
-    if args.sampler in ['sgld', 'sghmc', 'baoa', 'sgmcmc']:
+    # Note for MCMC samplers
+    if args.sampler in ['sgld', 'sghmc', 'baoa']:
         logger.info("\nMCMC Sampler Configuration:")
         logger.info("  - This sampler uses warmup and sampling schedule")
         logger.info("  - Training will automatically stop after completing the schedule")
@@ -245,8 +244,6 @@ def main():
         config = CONFIG.copy()
     elif args.sampler == 'ekf':
         config = CONFIG_EKF.copy()
-    elif args.sampler == 'sgmcmc':
-        config = CONFIG_SGMCMC.copy()
     elif args.sampler == 'sgld':
         config = CONFIG_SGLD.copy()
     elif args.sampler == 'sghmc':

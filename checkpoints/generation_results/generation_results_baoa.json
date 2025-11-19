@@ -5,6 +5,7 @@
       "temperature": 0.3,
       "top_k": 10,
       "num_samples": 10,
+      "model_path": "/Users/sofianikolenko/Downloads/Projects_25/ADL/adl-bnn-textgen/checkpoints/samplers/baoa_sampler/run_20251118-124935/baoa_model.pt",
       "has_collected_samples": true
     },
     "start_prompt": "to be, or not to be;",
@@ -21,6 +22,7 @@
       "temperature": 0.8,
       "top_k": 10,
       "num_samples": 10,
+      "model_path": "/Users/sofianikolenko/Downloads/Projects_25/ADL/adl-bnn-textgen/checkpoints/samplers/baoa_sampler/run_20251118-124935/baoa_model.pt",
       "has_collected_samples": true
     },
     "start_prompt": "to be, or not to be;",
@@ -37,6 +39,7 @@
       "temperature": 0.3,
       "top_k": 10,
       "num_samples": 20,
+      "model_path": "/Users/sofianikolenko/Downloads/Projects_25/ADL/adl-bnn-textgen/checkpoints/samplers/baoa_sampler/run_20251118-124935/baoa_model.pt",
       "has_collected_samples": true
     },
     "start_prompt": "to be, or not to be;",
@@ -53,7 +56,7 @@
       "temperature": 0.8,
       "top_k": 10,
       "num_samples": 10,
-      "model_path": "/Users/sofianikolenko/Downloads/Projects_25/ADL/adl-bnn-textgen/checkpoints/baseline/models/baseline_model_2k.pt",
+      "model_path": "/Users/sofianikolenko/Downloads/Projects_25/ADL/adl-bnn-textgen/checkpoints/samplers/baoa_sampler/run_20251118-124935/baoa_model.pt",
       "has_collected_samples": true
     },
     "start_prompt": "to be, or not to be",
@@ -70,7 +73,7 @@
       "temperature": 0.8,
       "top_k": 10,
       "num_samples": 10,
-      "model_path": "/Users/sofianikolenko/Downloads/Projects_25/ADL/adl-bnn-textgen/checkpoints/baseline/models/baseline_model_2k.pt",
+      "model_path": "/Users/sofianikolenko/Downloads/Projects_25/ADL/adl-bnn-textgen/checkpoints/samplers/baoa_sampler/run_20251118-124935/baoa_model.pt",
       "has_collected_samples": true
     },
     "start_prompt": "to be, or not to be",
@@ -87,7 +90,7 @@
       "temperature": 0.8,
       "top_k": 10,
       "num_samples": 10,
-      "model_path": "/Users/sofianikolenko/Downloads/Projects_25/ADL/adl-bnn-textgen/checkpoints/baseline/models/baseline_model_2k.pt",
+      "model_path": "/Users/sofianikolenko/Downloads/Projects_25/ADL/adl-bnn-textgen/checkpoints/samplers/baoa_sampler/run_20251118-124935/baoa_model.pt",
       "has_collected_samples": true
     },
     "start_prompt": "to be, or not to be",

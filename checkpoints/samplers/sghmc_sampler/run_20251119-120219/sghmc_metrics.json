@@ -1,11 +1,11 @@
 {
-  "sampler_type": "baoa",
+  "sampler_type": "sghmc",
   "config": {
     "batch_size": 16,
     "train_samples": 10000,
     "max_seq_length": 128,
     "num_epochs": 15,
-    "learning_rate": 1e-06,
+    "learning_rate": 1e-05,
     "temperature": 1.0,
     "vi_n_samples": 1,
     "prior_std": 1,
@@ -20,21 +20,22 @@
     "wandb_project": "bayesian-nanogpt",
     "weight_decay": 0.01,
     "kl_weight": 1.0,
-    "baoa_alpha": 0.01,
-    "baoa_sigma": 1.0,
+    "sghmc_alpha": 0.1,
+    "sghmc_beta": 0.0,
+    "sghmc_sigma": 1.0,
     "warmup_steps": 200,
     "sampling_steps": 1000,
     "thinning": 10
   },
   "training_metrics": {
-    "sampler_specific_metrics": [],
     "total_steps": 1200,
-    "samples_collected": 100
+    "samples_collected": 100,
+    "avg_momentum": 0.7983924150466919
   },
-  "timestamp": "2025-11-18T12:49:35.931454",
-    "uncertainty": {
-      "avg_predictive_entropy": 0.7924103140830994,
-      "max_predictive_entropy": 2.168023109436035,
-      "min_predictive_entropy": 0.006734772585332394
-    }
+  "timestamp": "2025-11-19T12:02:19.570269",
+  "uncertainty": {
+    "avg_predictive_entropy": 0.8182311058044434,
+    "max_predictive_entropy": 2.330643653869629,
+    "min_predictive_entropy": 0.007194678299129009
+  }
 }

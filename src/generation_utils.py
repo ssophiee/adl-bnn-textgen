@@ -54,8 +54,8 @@ def load_checkpoint_for_generation(checkpoint_path, device=DEVICE):
         result['state'] = state
         result['log_sd_diag'] = {k: v.to(device) for k, v in checkpoint['log_sd_diag'].items()}
 
-    # For SGMCMC samplers, load collected samples if available
-    elif sampler_type in ['sgld', 'sghmc', 'baoa', 'sgmcmc']:
+    # For MCMC samplers, load collected samples if available
+    elif sampler_type in ['sgld', 'sghmc', 'baoa']:
         if 'collected_samples' in checkpoint and checkpoint['collected_samples']:
             result['collected_samples'] = [
                 {k: v.to(device) for k, v in sample.items()}

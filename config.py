@@ -64,20 +64,6 @@ CONFIG_LAPLACE = {
     'learning_rate': 1e-5
 }
 
-CONFIG_SGMCMC = {
-    **CONFIG,
-    'learning_rate': 1e-7,
-    'sghmc_alpha': 0.2,
-    'sghmc_beta': 0.0,
-    'temperature': 1.0,
-    'prior_beta': 0.0001,  # Reduced prior influence
-
-    # Warm-up and sampling schedule
-    'warmup_steps': 200,
-    'sampling_steps': 1000,
-    'thinning': 10,  # Collect every 10th sample
-}
-
 CONFIG_SGLD = {
     **CONFIG,
     'learning_rate': 1e-6,
@@ -93,12 +79,11 @@ CONFIG_SGLD = {
 
 CONFIG_SGHMC = {
     **CONFIG,
-    'learning_rate': 1e-7,
-    'sghmc_alpha': 0.01,  # Friction coefficient
-    'sghmc_beta': 0.0,  # Noise estimate
-    'sghmc_sigma': 1.0,  # Prior std for momenta
-    'temperature': 1.0,
-    'prior_beta': 0.0001,  # Reduced prior influence
+    'learning_rate': 1e-5,      
+    'sghmc_alpha': 0.1,      
+    'sghmc_beta': 0.0,          
+    'sghmc_sigma': 1.0,         
+    'temperature': 1.0,         
 
     # Warm-up and sampling schedule
     'warmup_steps': 200,
