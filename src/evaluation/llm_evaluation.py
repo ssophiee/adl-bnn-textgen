@@ -3,7 +3,7 @@ LLM Evaluation Pipeline for Bayesian SGMCMC Models
 
 This module provides a comprehensive evaluation pipeline that:
 1. Generates text from multiple Bayesian models with different hyperparameters
-2. Uses Qwen2.5-7B as an LLM judge to evaluate generation quality
+2. Uses Qwen2.5-7B [unsloth/Qwen2.5-7B-Instruct-bnb-4bit - colab] as an LLM judge to evaluate generation quality
 3. Aggregates results to compare model performance
 
 """
@@ -15,7 +15,7 @@ from typing import List, Dict, Tuple, Any, Optional
 from datetime import datetime
 import numpy as np
 
-from src.generation_utils import generate_text_bayesian_sgmcmc
+from src.generation_utils import generate_text_bayesian_sgmcmc, generate_text_standard
 from config import DEVICE
 
 
@@ -30,6 +30,7 @@ class EvaluationConfig:
     def __init__(self,
                  test_prompts: List[str],
                  model_paths: List[str],
+                 model_types: Optional[List[str]] = None,
                  change_params: bool = False,
                  output_path: str = "checkpoints/generation_results/generation_results_testing.json",
                  device: str = DEVICE):
@@ -39,15 +40,25 @@ class EvaluationConfig:
         Args:
             test_prompts: List of starting prompts for generation
             model_paths: List of model checkpoint paths to evaluate
+            model_types: List of model types ('bayesian' or 'standard') for each model path.
+                        If None, assumes all models are 'bayesian'
             change_params: If True, sweep over hyperparameters
             output_path: Path to save generation results
             device: Device for inference ('cpu', 'cuda', 'mps')
         """
         self.test_prompts = test_prompts
         self.model_paths = model_paths
+        self.model_types = model_types if model_types is not None else ['bayesian'] * len(model_paths)
         self.change_params = change_params
         self.output_path = output_path
         self.device = device
+
+        # Validate model_types length matches model_paths
+        if len(self.model_types) != len(self.model_paths):
+            raise ValueError(
+                f"Length of model_types ({len(self.model_types)}) must match "
+                f"length of model_paths ({len(self.model_paths)})"
+            )
 
         # Set parameter ranges based on change_params
         if change_params:
@@ -108,8 +119,8 @@ def generate_all_texts(config: EvaluationConfig) -> Dict[str, Dict[str, Any]]:
 
     generation_count = 0
 
-    for model_path in config.model_paths:
-        print(f"\n--- Processing model: {Path(model_path).name} ---")
+    for model_idx, (model_path, model_type) in enumerate(zip(config.model_paths, config.model_types)):
+        print(f"\n--- Processing model {model_idx + 1}/{len(config.model_paths)}: {Path(model_path).name} (type: {model_type}) ---")
 
         for prompt in config.test_prompts:
             print(f"\n  Prompt: '{prompt[:50]}...' ")
@@ -127,27 +138,57 @@ def generate_all_texts(config: EvaluationConfig) -> Dict[str, Dict[str, Any]]:
                               end='', flush=True)
 
                         try:
-                            # Generate text
-                            generated_text, unc_info = generate_text_bayesian_sgmcmc(
-                                model_path=model_path,
-                                start_prompt=prompt,
-                                max_new_tokens=config.max_new_tokens,
-                                temperature=temperature,
-                                top_k=top_k,
-                                num_samples=num_samples,
-                                device=config.device
-                            )
+                            if model_type == 'bayesian':
+                                # Generate text with Bayesian model
+                                generated_text, unc_info = generate_text_bayesian_sgmcmc(
+                                    model_path=model_path,
+                                    start_prompt=prompt,
+                                    max_new_tokens=config.max_new_tokens,
+                                    temperature=temperature,
+                                    top_k=top_k,
+                                    num_samples=num_samples,
+                                    device=config.device
+                                )
 
-                            # Store result
-                            results[unique_id] = {
-                                "model_path": str(model_path),
-                                "prompt": prompt,
-                                "temperature": temperature,
-                                "top_k": top_k,
-                                "num_samples": num_samples,
-                                "generated_text": generated_text,
-                                "uncertainty_info": unc_info
-                            }
+                                # Store result
+                                results[unique_id] = {
+                                    "model_path": str(model_path),
+                                    "model_type": model_type,
+                                    "prompt": prompt,
+                                    "temperature": temperature,
+                                    "top_k": top_k,
+                                    "num_samples": num_samples,
+                                    "generated_text": generated_text,
+                                    "uncertainty_info": unc_info
+                                }
+
+                            elif model_type == 'standard':
+                                # Generate text with standard model
+                                # For standard models, num_samples means independent generations
+                                generated_texts = generate_text_standard(
+                                    model_path=model_path,
+                                    start_prompt=prompt,
+                                    max_new_tokens=config.max_new_tokens,
+                                    temperature=temperature,
+                                    top_k=top_k,
+                                    num_samples=1,  # Generate one text
+                                    device=config.device
+                                )
+
+                                # Store result (take first generated text)
+                                results[unique_id] = {
+                                    "model_path": str(model_path),
+                                    "model_type": model_type,
+                                    "prompt": prompt,
+                                    "temperature": temperature,
+                                    "top_k": top_k,
+                                    "num_samples": num_samples,  # Store for reference but not used
+                                    "generated_text": generated_texts[0],
+                                    "uncertainty_info": None  # No uncertainty for standard models
+                                }
+
+                            else:
+                                raise ValueError(f"Unknown model_type: {model_type}. Must be 'bayesian' or 'standard'")
 
                             print("✓")
 
@@ -156,6 +197,7 @@ def generate_all_texts(config: EvaluationConfig) -> Dict[str, Dict[str, Any]]:
                             # Store error information
                             results[unique_id] = {
                                 "model_path": str(model_path),
+                                "model_type": model_type,
                                 "prompt": prompt,
                                 "temperature": temperature,
                                 "top_k": top_k,
@@ -594,6 +636,7 @@ def run_evaluation_pipeline(
     change_params: bool = False,
     output_path: str = "checkpoints/generation_results/generation_results_testing.json",
     use_local_qwen: bool = False,
+    model_types: Optional[List[str]] = None,
     qwen_model: str = "Qwen/Qwen2.5-7B-Instruct",
     device: str = DEVICE
 ) -> Tuple[Dict[str, Dict], Dict[str, Dict]]:
@@ -638,6 +681,7 @@ def run_evaluation_pipeline(
     config = EvaluationConfig(
         test_prompts=test_prompts,
         model_paths=model_paths,
+        model_types=model_types, 
         change_params=change_params,
         output_path=output_path,
         device=device

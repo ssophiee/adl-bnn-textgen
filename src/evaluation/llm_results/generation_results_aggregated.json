@@ -1,0 +1,146 @@
+{
+  "/content/drive/MyDrive/samplers_models/samplers/sghmc_sampler/run_20251119-120219/sghmc_model.pt": {
+    "overall_avg_quality": 4.455357142857143,
+    "overall_avg_diversity": 5.473214285714286,
+    "overall_avg_relevance": 6.866071428571429,
+    "total_generations": 56,
+    "by_config": {
+      "temp_0.3_topk_10_samples_20": {
+        "avg_quality": 4.678571428571429,
+        "avg_diversity": 5.464285714285714,
+        "avg_relevance": 6.678571428571429,
+        "count": 14
+      },
+      "temp_0.3_topk_20_samples_20": {
+        "avg_quality": 4.0,
+        "avg_diversity": 5.0,
+        "avg_relevance": 6.5,
+        "count": 14
+      },
+      "temp_0.8_topk_10_samples_20": {
+        "avg_quality": 4.535714285714286,
+        "avg_diversity": 5.785714285714286,
+        "avg_relevance": 7.214285714285714,
+        "count": 14
+      },
+      "temp_0.8_topk_20_samples_20": {
+        "avg_quality": 4.607142857142857,
+        "avg_diversity": 5.642857142857143,
+        "avg_relevance": 7.071428571428571,
+        "count": 14
+      }
+    }
+  },
+  "/content/drive/MyDrive/samplers_models/samplers/baoa_sampler/run_20251118-124935/baoa_model.pt": {
+    "overall_avg_quality": 4.509433962264151,
+    "overall_avg_diversity": 5.556603773584905,
+    "overall_avg_relevance": 7.0754716981132075,
+    "total_generations": 106,
+    "by_config": {
+      "temp_0.3_topk_10_samples_10": {
+        "avg_quality": 4.857142857142857,
+        "avg_diversity": 5.892857142857143,
+        "avg_relevance": 7.357142857142857,
+        "count": 14
+      },
+      "temp_0.3_topk_10_samples_20": {
+        "avg_quality": 4.678571428571429,
+        "avg_diversity": 5.714285714285714,
+        "avg_relevance": 7.178571428571429,
+        "count": 14
+      },
+      "temp_0.3_topk_20_samples_10": {
+        "avg_quality": 4.428571428571429,
+        "avg_diversity": 5.464285714285714,
+        "avg_relevance": 7.071428571428571,
+        "count": 14
+      },
+      "temp_0.3_topk_20_samples_20": {
+        "avg_quality": 4.357142857142857,
+        "avg_diversity": 5.464285714285714,
+        "avg_relevance": 6.964285714285714,
+        "count": 14
+      },
+      "temp_0.8_topk_10_samples_10": {
+        "avg_quality": 4.357142857142857,
+        "avg_diversity": 5.357142857142857,
+        "avg_relevance": 6.892857142857143,
+        "count": 14
+      },
+      "temp_0.8_topk_10_samples_20": {
+        "avg_quality": 4.461538461538462,
+        "avg_diversity": 5.5,
+        "avg_relevance": 7.076923076923077,
+        "count": 13
+      },
+      "temp_0.8_topk_20_samples_10": {
+        "avg_quality": 4.409090909090909,
+        "avg_diversity": 5.454545454545454,
+        "avg_relevance": 6.863636363636363,
+        "count": 11
+      },
+      "temp_0.8_topk_20_samples_20": {
+        "avg_quality": 4.5,
+        "avg_diversity": 5.583333333333333,
+        "avg_relevance": 7.166666666666667,
+        "count": 12
+      }
+    }
+  },
+  "/content/drive/MyDrive/samplers_models/baseline/baseline_model_2k.pt": {
+    "overall_avg_quality": 4.386363636363637,
+    "overall_avg_diversity": 5.4363636363636365,
+    "overall_avg_relevance": 6.9772727272727275,
+    "total_generations": 110,
+    "by_config": {
+      "temp_0.3_topk_10_samples_10": {
+        "avg_quality": 4.538461538461538,
+        "avg_diversity": 5.576923076923077,
+        "avg_relevance": 7.153846153846154,
+        "count": 13
+      },
+      "temp_0.3_topk_10_samples_20": {
+        "avg_quality": 4.678571428571429,
+        "avg_diversity": 5.678571428571429,
+        "avg_relevance": 7.107142857142857,
+        "count": 14
+      },
+      "temp_0.3_topk_20_samples_10": {
+        "avg_quality": 4.285714285714286,
+        "avg_diversity": 5.357142857142857,
+        "avg_relevance": 6.857142857142857,
+        "count": 14
+      },
+      "temp_0.3_topk_20_samples_20": {
+        "avg_quality": 4.321428571428571,
+        "avg_diversity": 5.392857142857143,
+        "avg_relevance": 6.964285714285714,
+        "count": 14
+      },
+      "temp_0.8_topk_10_samples_10": {
+        "avg_quality": 4.285714285714286,
+        "avg_diversity": 5.285714285714286,
+        "avg_relevance": 6.821428571428571,
+        "count": 14
+      },
+      "temp_0.8_topk_10_samples_20": {
+        "avg_quality": 4.269230769230769,
+        "avg_diversity": 5.384615384615385,
+        "avg_relevance": 6.961538461538462,
+        "count": 13
+      },
+      "temp_0.8_topk_20_samples_10": {
+        "avg_quality": 4.5,
+        "avg_diversity": 5.5,
+        "avg_relevance": 7.071428571428571,
+        "count": 14
+      },
+      "temp_0.8_topk_20_samples_20": {
+        "avg_quality": 4.214285714285714,
+        "avg_diversity": 5.321428571428571,
+        "avg_relevance": 6.892857142857143,
+        "count": 14
+      }
+    }
+  }
+}
