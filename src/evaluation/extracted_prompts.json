@@ -1,0 +1,52 @@
+{
+  "train_prompts": [
+    "You were kneel'd to and impor",
+    "Yes, I know thee to be Signior",
+    "Then go with me to make the matter good",
+    "Mark his condition and the event; then tell me",
+    "Why, she hath a face of her own",
+    "I pray you stand good father to me now,",
+    "And time it is, when raging war is do",
+    "You shall not choose but drink before you go:",
+    "Young budding virgin, fair and fresh and sweet,",
+    "Better once than never, for nev"
+  ],
+  "val_prompts": [
+    "Why, my young cousin, it is good to grow",
+    "Going to find a bare-foot brother out",
+    "Nay, speak thy mind; and let him",
+    "O, father, you'll know more of that hereafte",
+    "O Ratcliff, I fear, I f",
+    "This may prove worse than hanging",
+    "Far be the thought of this from Henry's heart,",
+    "An I were so apt to quar",
+    "I am thus bold to put your g",
+    "Barely in title, not in revenue"
+  ],
+  "all_prompts": [
+    "You were kneel'd to and impor",
+    "Yes, I know thee to be Signior",
+    "Then go with me to make the matter good",
+    "Mark his condition and the event; then tell me",
+    "Why, she hath a face of her own",
+    "I pray you stand good father to me now,",
+    "And time it is, when raging war is do",
+    "You shall not choose but drink before you go:",
+    "Young budding virgin, fair and fresh and sweet,",
+    "Better once than never, for nev",
+    "Why, my young cousin, it is good to grow",
+    "Going to find a bare-foot brother out",
+    "Nay, speak thy mind; and let him",
+    "O, father, you'll know more of that hereafte",
+    "O Ratcliff, I fear, I f",
+    "This may prove worse than hanging",
+    "Far be the thought of this from Henry's heart,",
+    "An I were so apt to quar",
+    "I am thus bold to put your g",
+    "Barely in title, not in revenue"
+  ],
+  "extraction_date": "2025-11-21T02:06:33.988401",
+  "num_train_prompts": 10,
+  "num_val_prompts": 10,
+  "total_prompts": 20
+}

@@ -734,16 +734,27 @@ def run_evaluation_pipeline(
 # =============================================================================
 
 if __name__ == "__main__":
-    # Example configuration
-    test_prompts = [
-        "to be or not to be;",
-        "Once upon a time",
-        "In the beginning",
-    ]
+    # Load extracted prompts from Shakespeare data
+    import glob
+    
+    extracted_prompts_path = Path("src/evaluation/extracted_prompts.json")
+    if extracted_prompts_path.exists():
+        with open(extracted_prompts_path, 'r') as f:
+            extracted_prompts = json.load(f)
+        
+        # Use 1 prompt from train and 1 from val DEBUG
+        test_prompts = [
+            extracted_prompts['train_prompts'][0],  # First train prompt
+            extracted_prompts['val_prompts'][0]      # First val prompt
+        ]
+        print(f"Loaded prompts from extracted_prompts.json:")
+        print(f"  Train prompt: '{test_prompts[0]}'")
+        print(f"  Val prompt: '{test_prompts[1]}'")
+    else:
+        print(f" Extracted prompts file not found at: {extracted_prompts_path}")
+        raise FileNotFoundError("Please check extract_prompts.json path")
 
     # Example: Find recent SGMCMC models
-    import glob
-
     # Find SGHMC models
     sghmc_models = sorted(glob.glob("checkpoints/samplers/sghmc_sampler/*/sghmc_model.pt"))
 
@@ -757,12 +768,12 @@ if __name__ == "__main__":
     if baoa_models:
         model_paths.append(baoa_models[-1])
 
-    print(f"Found {len(model_paths)} models to evaluate:")
+    print(f"\nFound {len(model_paths)} models to evaluate:")
     for path in model_paths:
         print(f"  - {path}")
 
     if not model_paths:
-        print("\nNo models found! Please provide model paths manually.")
+        print("\n No models found! Please provide model paths manually.")
         print("Example:")
         print("  model_paths = ['checkpoints/samplers/sghmc_sampler/run_xyz/sghmc_model.pt']")
     else:
