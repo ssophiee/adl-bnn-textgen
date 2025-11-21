@@ -1,1 +1,0 @@
-Maybe instead of having config.py that loads variables from environment variables, we can directly put the values in the config.py, so that it's not ignored by git (since we don't have any sensitive info there).
