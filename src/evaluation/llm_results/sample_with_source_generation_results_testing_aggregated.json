@@ -1,0 +1,16 @@
+{
+  "checkpoints/samplers/sghmc_sampler\\run_20251119-120219\\sghmc_model.pt": {
+    "overall_avg_quality": 7.5914203630932455,
+    "overall_avg_diversity": 6.546672347974248,
+    "overall_avg_relevance": 7.353317016623847,
+    "total_generations": 2,
+    "by_config": {
+      "temp_0.3_topk_10_samples_1": {
+        "avg_quality": 7.5914203630932455,
+        "avg_diversity": 6.546672347974248,
+        "avg_relevance": 7.353317016623847,
+        "count": 2
+      }
+    }
+  }
+}

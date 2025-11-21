@@ -26,7 +26,8 @@ class EvaluationConfig:
     DEFAULT_TOP_K = [10, 20, 50]
     DEFAULT_NUM_SAMPLES = [10, 20, 30]
     DEFAULT_MAX_NEW_TOKENS = 600
-
+  
+    
     def __init__(self,
                  test_prompts: List[str],
                  model_paths: List[str],
@@ -69,7 +70,7 @@ class EvaluationConfig:
             # Use single default values
             self.temperatures = [0.3]
             self.top_k_values = [10]
-            self.num_samples_values = [2] # reduced for debug
+            self.num_samples_values = [1] 
 
         self.max_new_tokens = self.DEFAULT_MAX_NEW_TOKENS
 
@@ -125,6 +126,22 @@ def generate_all_texts(config: EvaluationConfig) -> Dict[str, Dict[str, Any]]:
         for prompt in config.test_prompts:
             print(f"\n  Prompt: '{prompt[:50]}...' ")
 
+            # ---- Newly added lines ----
+            all_prompts_path = Path("src") / "evaluation" / "extracted_prompts.json"
+
+            if Path(all_prompts_path).exists():
+                with open(all_prompts_path, 'r') as f:
+                    all_prompts = json.load(f)
+        
+            else:
+                raise FileNotFoundError("Warning: extracted_prompts.json not found. Using empty prompt list.")
+
+            
+            for key, value in all_prompts.items():
+                if prompt in value:
+                    prompt_source = key.split("_")[0]
+                    break
+
             for temperature in config.temperatures:
                 for top_k in config.top_k_values:
                     for num_samples in config.num_samples_values:
@@ -155,6 +172,7 @@ def generate_all_texts(config: EvaluationConfig) -> Dict[str, Dict[str, Any]]:
                                     "model_path": str(model_path),
                                     "model_type": model_type,
                                     "prompt": prompt,
+                                    "prompt_source": prompt_source,
                                     "temperature": temperature,
                                     "top_k": top_k,
                                     "num_samples": num_samples,
@@ -180,6 +198,7 @@ def generate_all_texts(config: EvaluationConfig) -> Dict[str, Dict[str, Any]]:
                                     "model_path": str(model_path),
                                     "model_type": model_type,
                                     "prompt": prompt,
+                                    "prompt_source": prompt_source,
                                     "temperature": temperature,
                                     "top_k": top_k,
                                     "num_samples": num_samples,  # Store for reference but not used
@@ -199,6 +218,7 @@ def generate_all_texts(config: EvaluationConfig) -> Dict[str, Dict[str, Any]]:
                                 "model_path": str(model_path),
                                 "model_type": model_type,
                                 "prompt": prompt,
+                                "prompt_source": prompt_source,
                                 "temperature": temperature,
                                 "top_k": top_k,
                                 "num_samples": num_samples,
