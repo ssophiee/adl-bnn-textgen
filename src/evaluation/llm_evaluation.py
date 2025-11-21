@@ -69,7 +69,7 @@ class EvaluationConfig:
             # Use single default values
             self.temperatures = [0.3]
             self.top_k_values = [10]
-            self.num_samples_values = [10]
+            self.num_samples_values = [2] # reduced for debug
 
         self.max_new_tokens = self.DEFAULT_MAX_NEW_TOKENS
 

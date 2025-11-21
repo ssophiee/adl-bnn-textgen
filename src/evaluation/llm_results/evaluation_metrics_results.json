@@ -1,0 +1,19 @@
+{
+  "evaluation_timestamp": "2025-11-21T02:45:46.319412",
+  "num_configurations": 1,
+  "total_samples": 2,
+  "metrics": {
+    "run_20251119-120219_temp0.3_topk10_samples2": {
+      "num_samples": 2,
+      "bleu": 0.055064549130892995,
+      "rouge1": 0.2602687852687853,
+      "rouge2": 0.17505431252659634,
+      "rougeL": 0.20184882684882682,
+      "perplexity": 89.2365665435791,
+      "avg_text_length": 634.5,
+      "model_path": "checkpoints/samplers/sghmc_sampler\\run_20251119-120219\\sghmc_model.pt",
+      "temperature": 0.3,
+      "top_k": 10
+    }
+  }
+}
