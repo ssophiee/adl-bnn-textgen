@@ -40,7 +40,7 @@ for p in paths_to_add:
 from src.nanogpt_utils import load_model, load_tokenizer
 from src.bayesian_utils import create_training_batches, run_bayesian_pipeline
 from config import CONFIG, MODEL_PATH, META_PATH, DATA_DIR, CONFIG_EKF, CONFIG_SGLD, CONFIG_SGHMC, CONFIG_BAOA
-from src.evaluation.nanogpt_evaluator import NanoGPTEvaluator, evaluate_splits
+from src.evaluation.bayesian_evaluator import BayesianNanoGPTEvaluator, evaluate_bayesian_splits
 
 """Bayesian NanoGPT training script with optional external evaluation.
 
@@ -161,13 +161,19 @@ def parse_args():
     parser.add_argument(
         '--eval',
         action='store_true',
-        help='Run evaluation after training'
+        help='Run Bayesian evaluation after training (samples from posterior for generation)'
     )
     parser.add_argument(
         '--eval-splits',
         nargs='*',
         default=['val','train'],
         help='Dataset splits to evaluate'
+    )
+    parser.add_argument(
+        '--eval-num-posterior-samples',
+        type=int,
+        default=10,
+        help='Number of posterior samples to use for Bayesian evaluation'
     )
     parser.add_argument(
         '--eval-max-samples',
@@ -330,18 +336,15 @@ def main():
         if collected_samples:
             logger.info(f"\nCollected {len(collected_samples)} SGMCMC samples for generation")
 
-        # Optional external evaluation using NanoGPTEvaluator
+        # Optional external evaluation using BayesianNanoGPTEvaluator
         if args.eval:
             logger.info("\n" + "="*70)
-            logger.info("Running external evaluation (NanoGPTEvaluator)...")
+            logger.info("Running Bayesian evaluation with posterior sampling...")
             logger.info("="*70)
             try:
                 eval_cfg = {
                     'data_dir': str(DATA_DIR),
-                    'model_path': str(MODEL_PATH),
-                    'meta_path': str(META_PATH),
                     'splits': args.eval_splits,
-                    'device': 'auto',
                     'batch_size': config['batch_size'],
                     'max_eval_samples': args.eval_max_samples,
                     'num_text_samples': args.eval_num_text_samples,
@@ -349,28 +352,46 @@ def main():
                     'generation_length': args.eval_generation_length,
                     'max_tokens': args.eval_max_tokens,
                 }
-                evaluator = NanoGPTEvaluator(eval_cfg['model_path'], eval_cfg['meta_path'], eval_cfg['device'])
-                split_results = evaluate_splits(evaluator, eval_cfg)
+                
+                # Create Bayesian evaluator with appropriate sampler state
+                bayesian_evaluator = BayesianNanoGPTEvaluator(
+                    model=model,
+                    stoi=stoi,
+                    itos=itos,
+                    sampler_type=args.sampler,
+                    state=state if args.sampler in ['vi', 'ekf', 'laplace'] else None,
+                    collected_samples=collected_samples if args.sampler in ['sgld', 'sghmc', 'baoa'] else None,
+                    device='auto',
+                    num_posterior_samples=10,
+                )
+                
+                split_results = evaluate_bayesian_splits(bayesian_evaluator, eval_cfg)
+                
+                logger.info("\nBayesian Evaluation Results:")
                 for split, res in split_results.items():
                     if 'error' in res:
                         logger.error(f"[{split}] Evaluation error: {res['error']}")
                     else:
-                        logger.info(f"[{split}] tokens={res.get('total_tokens')} ppl={res.get('perplexity'):.4f} bleu={res.get('bleu',0.0):.4f} rouge1={res.get('rouge1',0.0):.4f}")
+                        logger.info(f"[{split}] sampler={res.get('sampler_type')} posterior_samples={res.get('num_posterior_samples')}")
+                        logger.info(f"        tokens={res.get('total_tokens')} ppl={res.get('perplexity'):.4f} bleu={res.get('bleu',0.0):.4f} rouge1={res.get('rouge1',0.0):.4f}")
+                
                 # Persist evaluation JSON
                 out_dir = Path('checkpoints') / 'samplers' / f"{args.sampler}_sampler"
                 out_dir.mkdir(parents=True, exist_ok=True)
                 ts_eval = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
-                out_file = out_dir / f"external_eval_{ts_eval}.json"
+                out_file = out_dir / f"bayesian_eval_{ts_eval}.json"
                 payload = {
                     'config': eval_cfg,
+                    'sampler_type': args.sampler,
+                    'num_posterior_samples': 10,
                     'results': split_results,
-                    'vocab_size': evaluator.vocab_size,
+                    'vocab_size': bayesian_evaluator.vocab_size,
                 }
                 with open(out_file, 'w') as f:
                     json.dump(payload, f, indent=2)
-                logger.info(f"External evaluation saved to: {out_file}")
+                logger.info(f"Bayesian evaluation saved to: {out_file}")
             except Exception:
-                logger.exception("External evaluation failed")
+                logger.exception("Bayesian evaluation failed")
         
         logger.info("="*70)
         logger.info(f"Log file saved to: {log_file}")
