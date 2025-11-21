@@ -1,0 +1,30 @@
+{
+  "checkpoints/samplers/sghmc_sampler\\run_20251119-120219\\sghmc_model.pt": {
+    "overall_avg_quality": 8.76686626013424,
+    "overall_avg_diversity": 6.556104197826053,
+    "overall_avg_relevance": 8.097931268121688,
+    "total_generations": 2,
+    "by_config": {
+      "temp_0.3_topk_10_samples_1": {
+        "avg_quality": 8.76686626013424,
+        "avg_diversity": 6.556104197826053,
+        "avg_relevance": 8.097931268121688,
+        "count": 2
+      }
+    }
+  },
+  "checkpoints/samplers/baoa_sampler\\run_20251118-124935\\baoa_model.pt": {
+    "overall_avg_quality": 6.670671354975864,
+    "overall_avg_diversity": 7.242961288319533,
+    "overall_avg_relevance": 7.848022821163086,
+    "total_generations": 2,
+    "by_config": {
+      "temp_0.3_topk_10_samples_1": {
+        "avg_quality": 6.670671354975864,
+        "avg_diversity": 7.242961288319533,
+        "avg_relevance": 7.848022821163086,
+        "count": 2
+      }
+    }
+  }
+}

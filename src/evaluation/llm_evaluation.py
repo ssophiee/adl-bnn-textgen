@@ -120,27 +120,23 @@ def generate_all_texts(config: EvaluationConfig) -> Dict[str, Dict[str, Any]]:
 
     generation_count = 0
 
+    # Load prompt sources once at the beginning
+    prompt_sources = {}
+    all_prompts_path = Path("src") / "evaluation" / "extracted_prompts.json"
+    if all_prompts_path.exists():
+        with open(all_prompts_path, 'r') as f:
+            all_prompts = json.load(f)
+        for prompt in all_prompts.get('train_prompts', []):
+            prompt_sources[prompt] = 'train'
+        for prompt in all_prompts.get('val_prompts', []):
+            prompt_sources[prompt] = 'val'
+
     for model_idx, (model_path, model_type) in enumerate(zip(config.model_paths, config.model_types)):
         print(f"\n--- Processing model {model_idx + 1}/{len(config.model_paths)}: {Path(model_path).name} (type: {model_type}) ---")
 
         for prompt in config.test_prompts:
-            print(f"\n  Prompt: '{prompt[:50]}...' ")
-
-            # ---- Newly added lines ----
-            all_prompts_path = Path("src") / "evaluation" / "extracted_prompts.json"
-
-            if Path(all_prompts_path).exists():
-                with open(all_prompts_path, 'r') as f:
-                    all_prompts = json.load(f)
-        
-            else:
-                raise FileNotFoundError("Warning: extracted_prompts.json not found. Using empty prompt list.")
-
-            
-            for key, value in all_prompts.items():
-                if prompt in value:
-                    prompt_source = key.split("_")[0]
-                    break
+            prompt_source = prompt_sources.get(prompt, 'unknown')
+            print(f"\n  Prompt: '{prompt[:50]}...' [source: {prompt_source}]")
 
             for temperature in config.temperatures:
                 for top_k in config.top_k_values:
@@ -762,14 +758,20 @@ if __name__ == "__main__":
         with open(extracted_prompts_path, 'r') as f:
             extracted_prompts = json.load(f)
         
-        # Use 1 prompt from train and 1 from val DEBUG
-        test_prompts = [
-            extracted_prompts['train_prompts'][0],  # First train prompt
-            extracted_prompts['val_prompts'][0]      # First val prompt
-        ]
+        # Use all prompts from both train and val
+        test_prompts = [extracted_prompts['all_prompts'][2]] + [extracted_prompts['all_prompts'][-2]] 
+        
+        # Create prompt source mapping
+        prompt_sources = {}
+        for prompt in extracted_prompts['train_prompts']:
+            prompt_sources[prompt] = 'train'
+        for prompt in extracted_prompts['val_prompts']:
+            prompt_sources[prompt] = 'val'
+        
         print(f"Loaded prompts from extracted_prompts.json:")
-        print(f"  Train prompt: '{test_prompts[0]}'")
-        print(f"  Val prompt: '{test_prompts[1]}'")
+        print(f"  Total prompts: {len(test_prompts)}")
+        print(f"  Train prompts: {len(extracted_prompts['train_prompts'])}")
+        print(f"  Val prompts: {len(extracted_prompts['val_prompts'])}")
     else:
         print(f" Extracted prompts file not found at: {extracted_prompts_path}")
         raise FileNotFoundError("Please check extract_prompts.json path")

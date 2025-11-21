@@ -1,42 +1,74 @@
 {
-  "evaluation_timestamp": "2025-11-21T03:13:38.755019",
-  "num_configurations": 1,
+  "evaluation_timestamp": "2025-11-21T03:38:26.093981",
+  "num_configurations": 2,
   "total_samples": {
-    "overall": 2,
-    "train": 1,
-    "val": 1
+    "overall": 4,
+    "train": 2,
+    "val": 2
   },
   "metrics": {
-    "run_20251119-120219_temp0.3_topk10_samples1": {
+    "sghmc_temp0.3_topk10_samples1_run_20251119-120219": {
       "model_path": "checkpoints/samplers/sghmc_sampler\\run_20251119-120219\\sghmc_model.pt",
       "temperature": 0.3,
       "top_k": 10,
       "overall": {
         "num_samples": 2,
-        "bleu": 0.05889994693403795,
-        "rouge1": 0.2561701811701812,
-        "rouge2": 0.17765235503594706,
-        "rougeL": 0.20036382536382535,
-        "perplexity": 120.16012573242188,
-        "avg_text_length": 634.5
+        "bleu": 0.061035218888669925,
+        "rouge1": 0.24407367700050625,
+        "rouge2": 0.1694514313091388,
+        "rougeL": 0.18537999940438965,
+        "perplexity": 104.39777946472168,
+        "avg_text_length": 633.5
       },
       "train": {
         "num_samples": 1,
-        "bleu": 0.06874423542850673,
-        "rouge1": 0.260989010989011,
-        "rouge2": 0.18457300275482091,
-        "rougeL": 0.21153846153846154,
-        "perplexity": 138.28872680664062,
-        "avg_text_length": 629.0
+        "bleu": 0.06297704392035605,
+        "rouge1": 0.26287262872628725,
+        "rouge2": 0.1956521739130435,
+        "rougeL": 0.20867208672086723,
+        "perplexity": 46.23453903198242,
+        "avg_text_length": 639.0
       },
       "val": {
         "num_samples": 1,
-        "bleu": 0.04696403578553052,
-        "rouge1": 0.25135135135135134,
-        "rouge2": 0.17073170731707318,
-        "rougeL": 0.18918918918918917,
-        "perplexity": 102.03157043457031,
-        "avg_text_length": 640.0
+        "bleu": 0.05825151807761313,
+        "rouge1": 0.22527472527472528,
+        "rouge2": 0.14325068870523416,
+        "rougeL": 0.1620879120879121,
+        "perplexity": 162.56094360351562,
+        "avg_text_length": 628.0
+      }
+    },
+    "baoa_temp0.3_topk10_samples1_run_20251118-124935": {
+      "model_path": "checkpoints/samplers/baoa_sampler\\run_20251118-124935\\baoa_model.pt",
+      "temperature": 0.3,
+      "top_k": 10,
+      "overall": {
+        "num_samples": 2,
+        "bleu": 0.055493811318388264,
+        "rouge1": 0.2536890616158909,
+        "rouge2": 0.1585631512756019,
+        "rougeL": 0.19096756901634954,
+        "perplexity": 55.512624740600586,
+        "avg_text_length": 633.5
+      },
+      "train": {
+        "num_samples": 1,
+        "bleu": 0.059073053779392974,
+        "rouge1": 0.26287262872628725,
+        "rouge2": 0.1766304347826087,
+        "rougeL": 0.19512195121951223,
+        "perplexity": 56.30217361450195,
+        "avg_text_length": 639.0
+      },
+      "val": {
+        "num_samples": 1,
+        "bleu": 0.05167416925783895,
+        "rouge1": 0.24450549450549453,
+        "rouge2": 0.14049586776859505,
+        "rougeL": 0.18681318681318682,
+        "perplexity": 54.72304916381836,
+        "avg_text_length": 628.0
       }
     }
   }
