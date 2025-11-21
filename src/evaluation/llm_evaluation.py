@@ -70,7 +70,7 @@ class EvaluationConfig:
             # Use single default values
             self.temperatures = [0.3]
             self.top_k_values = [10]
-            self.num_samples_values = [1] 
+            self.num_samples_values = [10] 
 
         self.max_new_tokens = self.DEFAULT_MAX_NEW_TOKENS
 
@@ -647,14 +647,15 @@ def aggregate_results(generation_results: Dict[str, Dict],
 # =============================================================================
 
 def run_evaluation_pipeline(
-    test_prompts: List[str],
-    model_paths: List[str],
+    test_prompts: Optional[List[str]] = None,
+    model_paths: List[str] = None,
     change_params: bool = False,
     output_path: str = "checkpoints/generation_results/generation_results_testing.json",
     use_local_qwen: bool = False,
     model_types: Optional[List[str]] = None,
     qwen_model: str = "Qwen/Qwen2.5-7B-Instruct",
-    device: str = DEVICE
+    device: str = DEVICE,
+    use_external_data: bool = True
 ) -> Tuple[Dict[str, Dict], Dict[str, Dict]]:
     """
     Run the complete evaluation pipeline.
@@ -665,13 +666,14 @@ def run_evaluation_pipeline(
     3. Results aggregation
 
     Args:
-        test_prompts: List of starting prompts for generation
+        test_prompts: List of starting prompts for generation (required if use_external_data=False)
         model_paths: List of model checkpoint paths to evaluate
         change_params: If True, sweep over hyperparameters
         output_path: Path to save generation results JSON
         use_local_qwen: If True, use local Qwen model for evaluation
         qwen_model: Qwen model identifier
         device: Device for inference
+        use_external_data: If False, load prompts from extracted_prompts.json; if True, use test_prompts parameter
 
     Returns:
         Tuple of (aggregated_results, full_results_with_scores)
@@ -692,6 +694,23 @@ def run_evaluation_pipeline(
     print(f"# LLM Evaluation Pipeline")
     print(f"# Started at: {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"{'#'*80}\n")
+
+    # Load prompts based on flag
+    if not use_external_data:
+        extracted_prompts_path = Path("src/evaluation/extracted_prompts.json")
+        if extracted_prompts_path.exists():
+            with open(extracted_prompts_path, 'r') as f:
+                extracted_prompts = json.load(f)
+            test_prompts = extracted_prompts['all_prompts']
+            print(f"Loaded {len(test_prompts)} prompts from extracted_prompts.json")
+            print(f"  Train prompts: {len(extracted_prompts['train_prompts'])}")
+            print(f"  Val prompts: {len(extracted_prompts['val_prompts'])}\n")
+        else:
+            raise FileNotFoundError(f"extracted_prompts.json not found at: {extracted_prompts_path}")
+    else:
+        if test_prompts is None:
+            raise ValueError("test_prompts must be provided when use_external_data=True")
+        print(f"Using {len(test_prompts)} provided prompts\n")
 
     # Initialize configuration
     config = EvaluationConfig(
@@ -750,31 +769,16 @@ def run_evaluation_pipeline(
 # =============================================================================
 
 if __name__ == "__main__":
-    # Load extracted prompts from Shakespeare data
     import glob
     
-    extracted_prompts_path = Path("src/evaluation/extracted_prompts.json")
-    if extracted_prompts_path.exists():
-        with open(extracted_prompts_path, 'r') as f:
-            extracted_prompts = json.load(f)
-        
-        # Use all prompts from both train and val
-        test_prompts = [extracted_prompts['all_prompts'][2]] + [extracted_prompts['all_prompts'][-2]] 
-        
-        # Create prompt source mapping
-        prompt_sources = {}
-        for prompt in extracted_prompts['train_prompts']:
-            prompt_sources[prompt] = 'train'
-        for prompt in extracted_prompts['val_prompts']:
-            prompt_sources[prompt] = 'val'
-        
-        print(f"Loaded prompts from extracted_prompts.json:")
-        print(f"  Total prompts: {len(test_prompts)}")
-        print(f"  Train prompts: {len(extracted_prompts['train_prompts'])}")
-        print(f"  Val prompts: {len(extracted_prompts['val_prompts'])}")
-    else:
-        print(f" Extracted prompts file not found at: {extracted_prompts_path}")
-        raise FileNotFoundError("Please check extract_prompts.json path")
+    # Option 1: provide custom prompts as a list (default)
+    external_data = True #  False will load prompts from `extracted_prompts.json`
+    
+    test_prompts = [
+        "to be or not to be;",
+        "Once upon a time",
+        "In the beginning",
+    ]
 
     # Example: Find recent SGMCMC models
     # Find SGHMC models
@@ -801,11 +805,12 @@ if __name__ == "__main__":
     else:
         # Run pipeline
         results, full_data = run_evaluation_pipeline(
-            test_prompts=test_prompts,
+            test_prompts=test_prompts if external_data else None,
             model_paths=model_paths,
             change_params=False,  # Set to True to sweep hyperparameters
             use_local_qwen=False,  # Set to True to use local Qwen model
-            device=DEVICE
+            device=DEVICE,
+            use_external_data=external_data  # Toggle between file and custom prompts
         )
 
         print("\n" + "="*80)
