@@ -235,6 +235,7 @@ def generate_all_texts(config: EvaluationConfig) -> Dict[str, Dict[str, Any]]:
     start_time = time.time()
     completed = 0
     errors = 0
+    save_interval = 20  # Save every 20 iterations
 
     # Execute tasks in parallel
     with ThreadPoolExecutor(max_workers=config.max_workers) as executor:
@@ -277,6 +278,12 @@ def generate_all_texts(config: EvaluationConfig) -> Dict[str, Dict[str, Any]]:
                           f"Model: {Path(task['model_path']).name[:20]}, "
                           f"T={task['temperature']}, k={task['top_k']}, n={task['num_samples']} "
                           f"| Rate: {rate:.1f}/s, ETA: {eta:.0f}s")
+                
+                # Save intermediate results every save_interval iterations
+                if completed % save_interval == 0:
+                    with results_lock:
+                        save_generation_results(results, config.output_path)
+                        print(f"  💾 Checkpoint: Saved {len(results)} results to disk\n")
                 
             except Exception as e:
                 print(f"\n{'!'*80}")
