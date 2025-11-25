@@ -30,7 +30,16 @@ def load_checkpoint_for_generation(checkpoint_path, device=DEVICE):
         >>> # For VI-based generation, use checkpoint_data['state']
         >>> # For SGMCMC generation, use checkpoint_data['collected_samples']
     """
-    checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
+    # Map to CPU first if device is not available, then move to target device
+    # This prevents "don't know how to restore data location" errors
+    try:
+        checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
+    except RuntimeError as e:
+        if "don't know how to restore data location" in str(e):
+            print(f"Warning: Failed to load directly to {device}. Loading to CPU first...")
+            checkpoint = torch.load(checkpoint_path, map_location='cpu', weights_only=False)
+        else:
+            raise
     
     # Extract sampler type from metrics
     sampler_type = checkpoint['complete_metrics']['sampler_type']
@@ -144,7 +153,7 @@ def generate_text_bayesian_sgmcmc(model_path, start_prompt,
 
     model = GPT(gptconf)
     model.eval()  
-    model.to(DEVICE)
+    model.to(device)  # Use the device parameter, not global DEVICE
     
     # Load tokenizer
     if meta_path is None:
