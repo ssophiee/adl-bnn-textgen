@@ -8,6 +8,10 @@ This module provides a comprehensive evaluation pipeline that:
 
 """
 
+import os
+# Set CUDA memory allocation config before importing PyTorch
+os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
+
 import json
 import uuid
 from pathlib import Path
@@ -254,31 +258,53 @@ def generate_all_texts(config: EvaluationConfig) -> Dict[str, Dict[str, Any]]:
                 if error:
                     errors += 1
                     status = "✗"
+                    # Print prominent error message
+                    print(f"\n{'!'*80}")
+                    print(f"[{completed}/{total_generations}] ✗ GENERATION FAILED")
+                    print(f"  Model: {Path(task['model_path']).name}")
+                    print(f"  Prompt: {task['prompt'][:50]}...")
+                    print(f"  Params: T={task['temperature']}, k={task['top_k']}, n={task['num_samples']}")
+                    print(f"  ERROR: {error}")
+                    print(f"{'!'*80}\n")
                 else:
                     status = "✓"
-                
-                # Print progress
-                elapsed = time.time() - start_time
-                rate = completed / elapsed if elapsed > 0 else 0
-                eta = (total_generations - completed) / rate if rate > 0 else 0
-                
-                print(f"[{completed}/{total_generations}] {status} "
-                      f"Model: {Path(task['model_path']).name[:20]}, "
-                      f"T={task['temperature']}, k={task['top_k']}, n={task['num_samples']} "
-                      f"| Rate: {rate:.1f}/s, ETA: {eta:.0f}s")
+                    # Print success progress
+                    elapsed = time.time() - start_time
+                    rate = completed / elapsed if elapsed > 0 else 0
+                    eta = (total_generations - completed) / rate if rate > 0 else 0
+                    
+                    print(f"[{completed}/{total_generations}] {status} "
+                          f"Model: {Path(task['model_path']).name[:20]}, "
+                          f"T={task['temperature']}, k={task['top_k']}, n={task['num_samples']} "
+                          f"| Rate: {rate:.1f}/s, ETA: {eta:.0f}s")
                 
             except Exception as e:
-                print(f"[{completed}/{total_generations}] ✗ Task failed: {str(e)}")
+                print(f"\n{'!'*80}")
+                print(f"[{completed}/{total_generations}] ✗ TASK EXCEPTION")
+                print(f"  Model: {Path(task['model_path']).name}")
+                print(f"  EXCEPTION: {type(e).__name__}: {str(e)}")
+                print(f"{'!'*80}\n")
                 errors += 1
 
     elapsed_total = time.time() - start_time
+    successful = len([r for r in results.values() if 'error' not in r])
+    
     print(f"\n{'='*80}")
     print(f"Generation Phase Complete")
-    print(f"  Successful: {len([r for r in results.values() if 'error' not in r])}/{total_generations}")
+    print(f"  Successful: {successful}/{total_generations}")
     print(f"  Errors: {errors}")
     print(f"  Total time: {elapsed_total:.1f}s ({elapsed_total/60:.1f}m)")
     print(f"  Average rate: {total_generations/elapsed_total:.2f} generations/second")
-    print(f"{'='*80}\n")
+    print(f"{'='*80}")
+    
+    # Show summary of errors if any occurred
+    if errors > 0:
+        print(f"\n{'!'*80}")
+        print(f"WARNING: {errors} generation(s) failed!")
+        print(f"Check the error messages above for details.")
+        print(f"{'!'*80}\n")
+    else:
+        print()
 
     return results
 
