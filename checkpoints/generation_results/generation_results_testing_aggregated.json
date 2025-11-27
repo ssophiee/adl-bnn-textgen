@@ -1,0 +1,16 @@
+{
+  "checkpoints\\baseline\\baseline_model_2k.pt": {
+    "overall_avg_quality": -509.0,
+    "overall_avg_diversity": -509.0,
+    "overall_avg_relevance": -509.0,
+    "total_generations": 10,
+    "by_config": {
+      "temp_0.8_topk_10_samples_10": {
+        "avg_quality": -509.0,
+        "avg_diversity": -509.0,
+        "avg_relevance": -509.0,
+        "count": 10
+      }
+    }
+  }
+}

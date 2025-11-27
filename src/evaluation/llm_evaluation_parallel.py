@@ -12,6 +12,7 @@ import os
 # Set CUDA memory allocation config before importing PyTorch
 os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
 
+import sys
 import json
 import uuid
 from pathlib import Path
@@ -22,8 +23,39 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from threading import Lock
 import time
 
+# Add project root to path
+project_root = Path(__file__).resolve().parent.parent.parent
+sys.path.insert(0, str(project_root))
+
 from src.generation_utils import generate_text_bayesian_sgmcmc, generate_text_standard
 from config import DEVICE
+
+
+def _detect_model_type(model_path: str) -> str:
+    """
+    Detect whether a checkpoint is a Bayesian model or standard model.
+    
+    Returns:
+        'bayesian' if SGMCMC samples are present, 'standard' otherwise
+    """
+    import torch
+    try:
+        checkpoint = torch.load(model_path, map_location='cpu', weights_only=False)
+        
+        # Check for Bayesian indicators
+        if 'collected_samples' in checkpoint and checkpoint['collected_samples']:
+            return 'bayesian'
+        elif 'sampler_state_params' in checkpoint or 'log_sd_diag' in checkpoint:
+            return 'bayesian'
+        elif 'complete_metrics' in checkpoint and 'sampler_type' in checkpoint['complete_metrics']:
+            return 'bayesian'
+        else:
+            # Standard model
+            return 'standard'
+    except Exception as e:
+        print(f"Warning: Could not detect model type for {model_path}: {e}")
+        # Default to standard if detection fails
+        return 'standard'
 
 
 class EvaluationConfig:
@@ -57,7 +89,15 @@ class EvaluationConfig:
         """
         self.test_prompts = test_prompts
         self.model_paths = model_paths
-        self.model_types = model_types if model_types is not None else ['bayesian'] * len(model_paths)
+        
+        # Auto-detect model types if not provided
+        if model_types is None:
+            print("Auto-detecting model types...")
+            self.model_types = [_detect_model_type(str(path)) for path in model_paths]
+            print(f"Detected model types: {self.model_types}")
+        else:
+            self.model_types = model_types
+            
         self.change_params = change_params
         self.output_path = output_path
         self.device = device
@@ -77,7 +117,7 @@ class EvaluationConfig:
             self.num_samples_values = self.DEFAULT_NUM_SAMPLES
         else:
             # Use single default values
-            self.temperatures = [0.3]
+            self.temperatures = [0.8]
             self.top_k_values = [10]
             self.num_samples_values = [10] 
 
@@ -791,7 +831,7 @@ def run_evaluation_pipeline(
         if extracted_prompts_path.exists():
             with open(extracted_prompts_path, 'r') as f:
                 extracted_prompts = json.load(f)
-            test_prompts = extracted_prompts['all_prompts']
+            test_prompts = extracted_prompts['all_prompts'][::2]
             print(f"Loaded {len(test_prompts)} prompts from extracted_prompts.json")
             print(f"  Train prompts: {len(extracted_prompts['train_prompts'])}")
             print(f"  Val prompts: {len(extracted_prompts['val_prompts'])}\n")
@@ -863,7 +903,7 @@ if __name__ == "__main__":
     import glob
     
     # Option 1: provide custom prompts as a list (default)
-    external_data = True #  False will load prompts from `extracted_prompts.json`
+    external_data = False #  False will load prompts from `extracted_prompts.json`
     
     test_prompts = [
         "to be or not to be;",
@@ -885,7 +925,7 @@ if __name__ == "__main__":
     if baoa_models:
         model_paths.append(baoa_models[-1])
 
-    # model_paths = ["checkpoints\\baseline\\baseline_model_2k.pt"]
+    model_paths = ["checkpoints\\baseline\\baseline_model_2k.pt"]
 
     print(f"\nFound {len(model_paths)} models to evaluate:")
     for path in model_paths:
@@ -902,9 +942,9 @@ if __name__ == "__main__":
             model_paths=model_paths,
             change_params=False,  # Set to True to sweep hyperparameters
             use_local_qwen=False,  # Set to True to use local Qwen model
-            device=DEVICE,
+            device="cpu",
             use_external_data=external_data,  # Toggle between file and custom prompts
-            max_workers=2  # Adjust based on your CPU/GPU resources (4-8 recommended)
+            max_workers=1  # Adjust based on your CPU/GPU resources (4-8 recommended)
         )
 
         print("\n" + "="*80)

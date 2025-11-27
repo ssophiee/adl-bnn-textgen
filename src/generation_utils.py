@@ -42,13 +42,25 @@ def load_checkpoint_for_generation(checkpoint_path, device=DEVICE):
             raise
     
     # Extract sampler type from metrics
-    sampler_type = checkpoint['complete_metrics']['sampler_type']
+    # Handle different checkpoint formats
+    if 'complete_metrics' in checkpoint:
+        sampler_type = checkpoint['complete_metrics']['sampler_type']
+        metrics = checkpoint['complete_metrics']
+    elif 'metrics' in checkpoint and 'sampler_type' in checkpoint['metrics']:
+        sampler_type = checkpoint['metrics']['sampler_type']
+        metrics = checkpoint['metrics']
+    elif 'model_args' in checkpoint:
+        # Standard non-Bayesian model
+        sampler_type = 'standard'
+        metrics = {}
+    else:
+        raise ValueError("Cannot determine sampler type from checkpoint. Missing 'complete_metrics' or 'metrics' key.")
 
     result = {
         'sampler_type': sampler_type,
-        'model_state_dict': checkpoint['model_state_dict'],
-        'params': {k: v.to(device) for k, v in checkpoint['sampler_state_params'].items()},
-        'metrics': checkpoint['complete_metrics']
+        'model_state_dict': checkpoint.get('model_state_dict', checkpoint.get('model', {})),
+        'params': {k: v.to(device) for k, v in checkpoint.get('sampler_state_params', {}).items()} if 'sampler_state_params' in checkpoint else {},
+        'metrics': metrics
     }
 
     # For VI-based samplers, reconstruct the state
