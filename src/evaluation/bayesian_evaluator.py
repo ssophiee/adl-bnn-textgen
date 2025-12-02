@@ -1,39 +1,13 @@
-"""Bayesian NanoGPT Evaluation Utilities
-
-Extends the standard NanoGPT evaluator to handle Bayesian models with posterior sampling.
-Supports VI-based samplers (VI, EKF, Laplace) and SGMCMC samplers (SGLD, SGHMC, BAOA).
-
-Usage:
-    from src.evaluation.bayesian_evaluator import BayesianNanoGPTEvaluator, evaluate_bayesian_splits
-
-    evaluator = BayesianNanoGPTEvaluator(
-        state=state,  # For VI/EKF
-        collected_samples=collected_samples,  # For SGMCMC
-        model=model,
-        stoi=stoi,
-        itos=itos,
-        sampler_type='vi',
-        device='cuda'
-    )
-    
-    results = evaluate_bayesian_splits(evaluator, config)
-"""
-from __future__ import annotations
-
 import time
+import numpy as np
+import evaluate as hf_evaluate
 from typing import Any, Dict, List, Optional, Tuple
 
-import numpy as np
 import torch
-import torch.nn.functional as F
 from torch import func
+import torch.nn.functional as F
+
 import posteriors
-
-try:
-    import evaluate as hf_evaluate
-except ImportError:
-    hf_evaluate = None
-
 from src.nanogpt_utils import decode
 
 __all__ = [
@@ -43,8 +17,6 @@ __all__ = [
 
 
 class BayesianNanoGPTEvaluator:
-    """Evaluator for Bayesian NanoGPT models with posterior sampling."""
-
     def __init__(
         self,
         model,
@@ -84,30 +56,23 @@ class BayesianNanoGPTEvaluator:
         self.collected_samples = collected_samples
         self.num_posterior_samples = num_posterior_samples
 
-        # Validate sampler configuration
         if sampler_type in ['vi', 'ekf', 'laplace'] and state is None:
             raise ValueError(f"state required for {sampler_type} sampler")
         if sampler_type in ['sgld', 'sghmc', 'baoa'] and not collected_samples:
             raise ValueError(f"collected_samples required for {sampler_type} sampler")
 
-        # Load metrics if available
+        self.bleu_metric = None
+        self.rouge_metric = None
+        self.perplexity_metric = None
         if hf_evaluate is not None:
             try:
                 self.bleu_metric = hf_evaluate.load('bleu')
                 self.rouge_metric = hf_evaluate.load('rouge')
                 self.perplexity_metric = hf_evaluate.load('perplexity', module_type='metric')
             except Exception:
-                self.bleu_metric = None
-                self.rouge_metric = None
-                self.perplexity_metric = None
-        else:
-            self.bleu_metric = None
-            self.rouge_metric = None
-            self.perplexity_metric = None
+                pass
 
-    # ------------------------------- Data Loading --------------------------- #
     def load_data(self, data_dir: str, split: str = 'val', max_tokens: Optional[int] = None) -> np.ndarray:
-        """Load dataset split."""
         from pathlib import Path as P
         filename = f'{split}.bin'
         filepath = P(data_dir) / filename
@@ -117,23 +82,13 @@ class BayesianNanoGPTEvaluator:
             return np.memmap(str(filepath), dtype=np.uint16, mode='r', shape=(max_tokens,))
         return np.memmap(str(filepath), dtype=np.uint16, mode='r')
 
-    # ------------------------------- Tokenizer ------------------------------ #
     def get_tokenizer(self):
-        """Get custom tokenizer for metrics."""
         def custom_tokenizer(text: str) -> List[str]:
             return [ch for ch in text if ch in self.stoi]
         return custom_tokenizer
 
-    # ------------------------------- Parameter Sampling --------------------- #
     def sample_parameters(self) -> List[Dict[str, torch.Tensor]]:
-        """
-        Sample parameters from posterior.
-
-        Returns:
-            List of parameter dictionaries sampled from the posterior
-        """
         if self.sampler_type in ['vi', 'ekf', 'laplace']:
-            # Sample from VI/EKF posterior using posteriors library
             samples = []
             for _ in range(self.num_posterior_samples):
                 if self.sampler_type == 'vi':
@@ -146,11 +101,9 @@ class BayesianNanoGPTEvaluator:
             return samples
 
         elif self.sampler_type in ['sgld', 'sghmc', 'baoa']:
-            # Use collected SGMCMC samples
             if not self.collected_samples:
                 raise ValueError("No collected samples available for SGMCMC evaluation")
             
-            # Use last num_posterior_samples or all available
             num_available = len(self.collected_samples)
             num_to_use = min(self.num_posterior_samples, num_available)
             return self.collected_samples[-num_to_use:]
@@ -158,7 +111,6 @@ class BayesianNanoGPTEvaluator:
         else:
             raise ValueError(f"Unknown sampler type: {self.sampler_type}")
 
-    # ------------------------------- Bayesian Generation -------------------- #
     def generate_samples_for_metrics(
         self,
         data: np.ndarray,
@@ -166,31 +118,17 @@ class BayesianNanoGPTEvaluator:
         prompt_length: int = 20,
         generation_length: int = 30,
     ) -> Tuple[List[str], List[str]]:
-        """
-        Generate text samples using Bayesian posterior.
-
-        Args:
-            data: Dataset to sample prompts from
-            num_samples: Number of text samples to generate
-            prompt_length: Length of prompt in tokens
-            generation_length: Length of generated text in tokens
-
-        Returns:
-            Tuple of (references, predictions) lists
-        """
         if len(data) < prompt_length + 5:
             return [], []
 
         max_possible = max(1, (len(data) - prompt_length - generation_length) // 100)
         num_samples = min(num_samples, max_possible)
 
-        # Sample parameters from posterior
         param_samples = self.sample_parameters()
 
         references, predictions = [], []
 
         for _ in range(num_samples):
-            # Get prompt and reference from data
             if len(data) > prompt_length + generation_length + 10:
                 start_idx = np.random.randint(0, len(data) - prompt_length - generation_length - 10)
             else:
@@ -200,24 +138,20 @@ class BayesianNanoGPTEvaluator:
             reference_tokens = data[start_idx + prompt_length:start_idx + prompt_length + generation_length].astype(np.int64)
             reference_text = decode(reference_tokens.tolist(), self.itos).strip()
 
-            # Generate with averaged posterior predictions
             x = torch.tensor(prompt_tokens, dtype=torch.long, device=self.device)[None, ...]
             generated_tokens: List[int] = []
 
             with torch.no_grad():
                 for _ in range(generation_length):
-                    # Crop to block size
                     x_cond = x if x.size(1) <= self.model.config.block_size else x[:, -self.model.config.block_size:]
 
-                    # Average predictions across posterior samples
                     logits_list = []
                     for params in param_samples:
                         logits, _ = func.functional_call(self.model, params, (x_cond,))
                         logits_list.append(logits[:, -1, :])
 
-                    # Average logits across samples
                     avg_logits = torch.stack(logits_list).mean(dim=0)
-                    avg_logits = avg_logits / 0.8  # temperature
+                    avg_logits = avg_logits / 0.8
 
                     probs = F.softmax(avg_logits, dim=-1)
                     next_token = torch.multinomial(probs, num_samples=1)
@@ -232,20 +166,12 @@ class BayesianNanoGPTEvaluator:
 
         return references, predictions
 
-    # ------------------------------- Perplexity ----------------------------- #
     def calculate_perplexity(
         self,
         data: np.ndarray,
         batch_size: int = 16,
         max_batches: int = 50,
     ) -> Optional[float]:
-        """
-        Calculate perplexity using HuggingFace perplexity metric.
-
-        Note: This uses generated text, not direct model probabilities.
-        For proper Bayesian perplexity, we'd need to average likelihoods
-        across posterior samples, but that's computationally expensive.
-        """
         if self.perplexity_metric is None:
             return None
 
@@ -276,9 +202,7 @@ class BayesianNanoGPTEvaluator:
         except Exception:
             return None
 
-    # ------------------------------- BLEU / ROUGE -------------------------- #
     def calculate_bleu_score(self, references: List[str], predictions: List[str]) -> Optional[float]:
-        """Calculate BLEU score."""
         if self.bleu_metric is None or not references or not predictions:
             return None
         try:
@@ -294,7 +218,6 @@ class BayesianNanoGPTEvaluator:
             return None
 
     def calculate_rouge_score(self, references: List[str], predictions: List[str]) -> Dict[str, float]:
-        """Calculate ROUGE scores."""
         if self.rouge_metric is None or not references or not predictions:
             return {'rouge1': 0.0, 'rouge2': 0.0, 'rougeL': 0.0}
         try:
@@ -312,7 +235,6 @@ class BayesianNanoGPTEvaluator:
         except Exception:
             return {'rouge1': 0.0, 'rouge2': 0.0, 'rougeL': 0.0}
 
-    # ------------------------------- Main Eval ----------------------------- #
     def evaluate_dataset(
         self,
         data_dir: str,
@@ -324,22 +246,6 @@ class BayesianNanoGPTEvaluator:
         generation_length: int = 30,
         max_tokens: Optional[int] = None,
     ) -> Dict[str, Any]:
-        """
-        Evaluate Bayesian model on dataset split.
-
-        Args:
-            data_dir: Directory containing train.bin, val.bin
-            split: Dataset split ('train', 'val')
-            batch_size: Batch size for perplexity calculation
-            max_eval_samples: Max samples for perplexity
-            num_text_samples: Number of text samples for BLEU/ROUGE
-            prompt_length: Prompt length for generation
-            generation_length: Generation length
-            max_tokens: Optional limit on data size
-
-        Returns:
-            Dictionary with evaluation metrics
-        """
         t0 = time.time()
         data = self.load_data(data_dir, split, max_tokens)
         results: Dict[str, Any] = {
@@ -349,7 +255,6 @@ class BayesianNanoGPTEvaluator:
             'num_posterior_samples': self.num_posterior_samples,
         }
 
-        # Perplexity
         perplexity = self.calculate_perplexity(
             data,
             batch_size,
@@ -357,7 +262,6 @@ class BayesianNanoGPTEvaluator:
         )
         results['perplexity'] = perplexity if perplexity is not None else 0.0
 
-        # BLEU/ROUGE via generation
         if len(data) > 100:
             refs, preds = self.generate_samples_for_metrics(
                 data,
@@ -371,7 +275,6 @@ class BayesianNanoGPTEvaluator:
                 rouge = self.calculate_rouge_score(refs, preds)
                 results.update(rouge)
 
-                # Example generations
                 examples = []
                 for i in range(min(3, len(refs))):
                     examples.append({
@@ -388,30 +291,10 @@ class BayesianNanoGPTEvaluator:
         return results
 
 
-# ------------------------------- Helper API ------------------------------- #
-
 def evaluate_bayesian_splits(
     evaluator: BayesianNanoGPTEvaluator,
     config: Dict[str, Any]
 ) -> Dict[str, Dict[str, Any]]:
-    """
-    Evaluate Bayesian model on all splits.
-
-    Args:
-        evaluator: BayesianNanoGPTEvaluator instance
-        config: Configuration dict with keys:
-            - data_dir: Path to data directory
-            - splits: List of splits to evaluate
-            - batch_size: Batch size
-            - max_eval_samples: Max samples for perplexity
-            - num_text_samples: Number of text samples
-            - prompt_length: Prompt length
-            - generation_length: Generation length
-            - max_tokens: Optional token limit
-
-    Returns:
-        Dictionary mapping split name to metrics
-    """
     import traceback
 
     all_results: Dict[str, Dict[str, Any]] = {}
