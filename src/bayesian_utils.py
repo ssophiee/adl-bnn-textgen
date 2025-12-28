@@ -1061,13 +1061,14 @@ Parameter Uncertainty:
             f.write(report)
 
 
-def run_bayesian_pipeline(training_batches, sampler_type='vi', use_wandb=True):
+def run_bayesian_pipeline(training_batches, sampler_type='vi', config=None, use_wandb=True):
     """
     Complete pipeline with W&B integration and deterministic comparison
 
     Args:
         training_batches: Training data batches
         sampler_type: One of 'vi', 'ekf', 'laplace', 'sgld', 'sghmc', 'baoa'
+        config: Configuration dictionary (optional, uses defaults if not provided)
         use_wandb: Whether to use Weights & Biases tracking
 
     Returns:
@@ -1078,19 +1079,20 @@ def run_bayesian_pipeline(training_batches, sampler_type='vi', use_wandb=True):
     """
     params = {k: v.clone().to(DEVICE) for k, v in MODEL.named_parameters()}
 
-    # Select appropriate config
-    if sampler_type == 'vi':
-        config = CONFIG.copy()
-    elif sampler_type == 'ekf':
-        config = CONFIG_EKF.copy()
-    elif sampler_type == 'sgld':
-        config = CONFIG_SGLD.copy()
-    elif sampler_type == 'sghmc':
-        config = CONFIG_SGHMC.copy()
-    elif sampler_type == 'baoa':
-        config = CONFIG_BAOA.copy()
-    else:
-        raise ValueError(f"Unknown sampler type: {sampler_type}. Must be one of: 'vi', 'ekf', 'laplace', 'sgld', 'sghmc', 'baoa'")
+    # Select appropriate config if not provided
+    if config is None:
+        if sampler_type == 'vi':
+            config = CONFIG.copy()
+        elif sampler_type == 'ekf':
+            config = CONFIG_EKF.copy()
+        elif sampler_type == 'sgld':
+            config = CONFIG_SGLD.copy()
+        elif sampler_type == 'sghmc':
+            config = CONFIG_SGHMC.copy()
+        elif sampler_type == 'baoa':
+            config = CONFIG_BAOA.copy()
+        else:
+            raise ValueError(f"Unknown sampler type: {sampler_type}. Must be one of: 'vi', 'ekf', 'laplace', 'sgld', 'sghmc', 'baoa'")
 
     pipeline = BayesianSamplerPipeline(
         sampler_type=sampler_type,

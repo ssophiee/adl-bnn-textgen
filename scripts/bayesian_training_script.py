@@ -314,6 +314,7 @@ def main():
         state, metrics, eval_results, collected_samples = run_bayesian_pipeline(
             training_batches,
             sampler_type=args.sampler,
+            config=config,
             use_wandb=not args.no_wandb
         )
         

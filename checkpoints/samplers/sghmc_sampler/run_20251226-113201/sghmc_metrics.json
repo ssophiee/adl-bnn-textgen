@@ -1,0 +1,41 @@
+{
+  "sampler_type": "sghmc",
+  "config": {
+    "batch_size": 16,
+    "train_samples": 10000,
+    "max_seq_length": 128,
+    "num_epochs": 15,
+    "learning_rate": 5e-06,
+    "temperature": 1.0,
+    "vi_n_samples": 1,
+    "prior_std": 1,
+    "prior_strength": 10.0,
+    "init_log_scale": -5,
+    "max_log_scale": 2,
+    "prior_beta": 0.0001,
+    "num_samples": 10,
+    "max_new_tokens": 100,
+    "generation_temperature": 0.8,
+    "save_dir": "checkpoints/samplers",
+    "wandb_project": "bayesian-nanogpt",
+    "weight_decay": 0.01,
+    "kl_weight": 1.0,
+    "sghmc_alpha": 0.1,
+    "sghmc_beta": 0.0,
+    "sghmc_sigma": 1.0,
+    "warmup_steps": 200,
+    "sampling_steps": 1000,
+    "thinning": 10
+  },
+  "training_metrics": {
+    "total_steps": 1200,
+    "samples_collected": 100,
+    "avg_momentum": 0.7983366250991821
+  },
+  "timestamp": "2025-12-26T11:32:01.815897",
+  "uncertainty": {
+    "avg_predictive_entropy": 0.7770966291427612,
+    "max_predictive_entropy": 2.1488969326019287,
+    "min_predictive_entropy": 0.006325689610093832
+  }
+}

@@ -1,5 +1,7 @@
 {
   "/content/drive/MyDrive/samplers_models/samplers/sghmc_sampler/run_20251119-120219/sghmc_model.pt": {
+    "sampler_type": "sghmc",
+    "step_size": 1e-05,
     "overall_avg_quality": 4.455357142857143,
     "overall_avg_diversity": 5.473214285714286,
     "overall_avg_relevance": 6.866071428571429,
@@ -32,6 +34,8 @@
     }
   },
   "/content/drive/MyDrive/samplers_models/samplers/baoa_sampler/run_20251118-124935/baoa_model.pt": {
+    "sampler_type": "baoa",
+    "step_size": 1e-06,
     "overall_avg_quality": 4.509433962264151,
     "overall_avg_diversity": 5.556603773584905,
     "overall_avg_relevance": 7.0754716981132075,
@@ -88,6 +92,8 @@
     }
   },
   "/content/drive/MyDrive/samplers_models/baseline/baseline_model_2k.pt": {
+    "sampler_type": "deterministic_baseline",
+    "step_size": "N/A",
     "overall_avg_quality": 4.386363636363637,
     "overall_avg_diversity": 5.4363636363636365,
     "overall_avg_relevance": 6.9772727272727275,
@@ -100,7 +106,7 @@
         "count": 13
       },
       "temp_0.3_topk_10_samples_20": {
-        "avg_quality": 4.678571428571429,
+        "avg_quality": 4.678571428571429, 
         "avg_diversity": 5.678571428571429,
         "avg_relevance": 7.107142857142857,
         "count": 14
