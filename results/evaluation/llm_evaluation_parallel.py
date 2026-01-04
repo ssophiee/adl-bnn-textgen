@@ -913,10 +913,10 @@ if __name__ == "__main__":
 
     # Example: Find recent SGMCMC models
     # Find SGHMC models
-    sghmc_models = sorted(glob.glob("checkpoints/samplers/sghmc_sampler/*/sghmc_model.pt"))
+    sghmc_models = sorted(glob.glob("content/drive/MyDrive/samplers/sghmc_sampler/*/sghmc_model.pt"))
 
     # Find BAOA models
-    baoa_models = sorted(glob.glob("checkpoints/samplers/baoa_sampler/*/baoa_model.pt"))
+    baoa_models = sorted(glob.glob("content/drive/MyDrive/samplers/*/baoa_model.pt"))
 
     # Take most recent models
     model_paths = []
