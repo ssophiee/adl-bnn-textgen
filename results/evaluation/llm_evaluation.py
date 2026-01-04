@@ -122,7 +122,7 @@ def generate_all_texts(config: EvaluationConfig) -> Dict[str, Dict[str, Any]]:
 
     # Load prompt sources once at the beginning
     prompt_sources = {}
-    all_prompts_path = Path("src") / "evaluation" / "extracted_prompts.json"
+    all_prompts_path = Path(__file__).resolve().parent / "extracted_prompts.json"
     if all_prompts_path.exists():
         with open(all_prompts_path, 'r') as f:
             all_prompts = json.load(f)
@@ -697,7 +697,7 @@ def run_evaluation_pipeline(
 
     # Load prompts based on flag
     if not use_external_data:
-        extracted_prompts_path = Path("src/evaluation/extracted_prompts.json")
+        extracted_prompts_path = Path(__file__).resolve().parent / "extracted_prompts.json"
         if extracted_prompts_path.exists():
             with open(extracted_prompts_path, 'r') as f:
                 extracted_prompts = json.load(f)
