@@ -228,6 +228,36 @@ cat checkpoints/samplers/baoa_sampler/bayesian_eval_<timestamp>.json
 cat src/evaluation/llm_results/external_data/generation_results_aggregated.json
 ```
 
+## Results
+
+### Key Findings
+
+**Best Model:** BAOA @ LR=1e-06 outperforms deterministic baseline on all metrics
+- Quality: +2.8% improvement over baseline
+- Diversity: +2.2% improvement over baseline
+- Relevance: +1.4% improvement over baseline
+
+**Optimal Generation Config:** temp=0.3, top_k=10, samples=10
+
+**Learning Rate Sensitivity:**
+- BAOA is robust across LR range (1e-06 to 5e-06)
+- SGHMC is highly sensitive to LR (requires LR=5e-06)
+
+### Analysis Reports
+
+Detailed analysis available in:
+- [results/evaluation/analysis_bnn_vs_baseline.md](results/evaluation/analysis_bnn_vs_baseline.md) - Main findings
+
+### Recommendations
+
+**For production use:**
+- Use BAOA sampler with LR=1e-06
+- Generation settings: temp=0.3, top_k=10, samples=10
+- Expected quality: 4.857/10 (vs baseline 4.386/10)
+
+**Avoid:**
+- SGHMC with LR > 5e-06 (performance degradation)
+
 ## References
 
 - Posteriors Package: [Documentation](https://normal-computing.github.io/posteriors/)

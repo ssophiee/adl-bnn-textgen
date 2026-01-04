@@ -1,0 +1,58 @@
+{
+  "/content/drive/MyDrive/adl-bnn-textgen/run_20251226-113201/sghmc_model.pt": {
+    "overall_avg_quality": 4.420833333333333,
+    "overall_avg_diversity": 5.575,
+    "overall_avg_relevance": 6.65,
+    "total_generations": 120,
+    "by_config": {
+      "temp_0.3_topk_10_samples_10": {
+        "avg_quality": 4.633333333333334,
+        "avg_diversity": 5.433333333333334,
+        "avg_relevance": 6.466666666666667,
+        "count": 15
+      },
+      "temp_0.3_topk_10_samples_20": {
+        "avg_quality": 4.1,
+        "avg_diversity": 5.266666666666667,
+        "avg_relevance": 6.1,
+        "count": 15
+      },
+      "temp_0.3_topk_20_samples_10": {
+        "avg_quality": 4.366666666666666,
+        "avg_diversity": 5.566666666666666,
+        "avg_relevance": 6.766666666666667,
+        "count": 15
+      },
+      "temp_0.3_topk_20_samples_20": {
+        "avg_quality": 4.566666666666666,
+        "avg_diversity": 5.833333333333333,
+        "avg_relevance": 6.833333333333333,
+        "count": 15
+      },
+      "temp_0.8_topk_10_samples_10": {
+        "avg_quality": 4.2,
+        "avg_diversity": 5.4,
+        "avg_relevance": 6.566666666666666,
+        "count": 15
+      },
+      "temp_0.8_topk_10_samples_20": {
+        "avg_quality": 4.366666666666666,
+        "avg_diversity": 5.566666666666666,
+        "avg_relevance": 6.633333333333334,
+        "count": 15
+      },
+      "temp_0.8_topk_20_samples_10": {
+        "avg_quality": 4.333333333333333,
+        "avg_diversity": 5.6,
+        "avg_relevance": 6.666666666666667,
+        "count": 15
+      },
+      "temp_0.8_topk_20_samples_20": {
+        "avg_quality": 4.8,
+        "avg_diversity": 5.933333333333334,
+        "avg_relevance": 7.166666666666667,
+        "count": 15
+      }
+    }
+  }
+}
