@@ -902,8 +902,12 @@ def run_evaluation_pipeline(
 if __name__ == "__main__":
     import glob
     
+    # print start date
+    st = datetime.now()
+    print(f"LLM Evaluation Pipeline - Started at {st.strftime('%Y-%m-%d %H:%M:%S')}\n")
+    
     # Option 1: provide custom prompts as a list (default)
-    external_data = False #  False will load prompts from `extracted_prompts.json`
+    external_data = True #  False will load prompts from `extracted_prompts.json`
     
     test_prompts = [
         "to be or not to be;",
@@ -925,7 +929,7 @@ if __name__ == "__main__":
     if baoa_models:
         model_paths.append(baoa_models[-1])
 
-    model_paths = ["checkpoints\\baseline\\baseline_model_2k.pt"]
+    # model_paths = ["checkpoints\\baseline\\baseline_model_2k.pt"]
 
     print(f"\nFound {len(model_paths)} models to evaluate:")
     for path in model_paths:
@@ -942,7 +946,7 @@ if __name__ == "__main__":
             model_paths=model_paths,
             change_params=False,  # Set to True to sweep hyperparameters
             use_local_qwen=False,  # Set to True to use local Qwen model
-            device="cpu",
+            device="cuda",
             use_external_data=external_data,  # Toggle between file and custom prompts
             max_workers=1  # Adjust based on your CPU/GPU resources (4-8 recommended)
         )
@@ -955,3 +959,7 @@ if __name__ == "__main__":
             print(f"  Quality: {model_results['overall_avg_quality']:.2f}")
             print(f"  Diversity: {model_results['overall_avg_diversity']:.2f}")
             print(f"  Relevance: {model_results['overall_avg_relevance']:.2f}")
+    
+    et = datetime.now()
+    print(f"\nLLM Evaluation Pipeline - Ended at {et.strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"Total Duration: {(et - st).total_seconds():.2f} seconds ({(et - st).total_seconds()/60:.2f} minutes)")
