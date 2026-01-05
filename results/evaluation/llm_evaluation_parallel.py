@@ -907,7 +907,7 @@ if __name__ == "__main__":
     print(f"LLM Evaluation Pipeline - Started at {st.strftime('%Y-%m-%d %H:%M:%S')}\n")
     
     # Option 1: provide custom prompts as a list (default)
-    external_data = True #  False will load prompts from `extracted_prompts.json`
+    external_data = False #  False will load prompts from `extracted_prompts.json`
     
     test_prompts = [
         "to be or not to be;",
@@ -930,6 +930,9 @@ if __name__ == "__main__":
         model_paths.append(baoa_models[-1])
 
     # model_paths = ["checkpoints\\baseline\\baseline_model_2k.pt"]
+    model_paths = ["/content/drive/MyDrive/samplers/baoa_sampler/run_20251224-145920/baoa_model.pt",
+              "/content/drive/MyDrive/samplers/sghmc_sampler/run_20251226-113201/sghmc_model.pt"]
+
 
     print(f"\nFound {len(model_paths)} models to evaluate:")
     for path in model_paths:
@@ -948,7 +951,7 @@ if __name__ == "__main__":
             use_local_qwen=False,  # Set to True to use local Qwen model
             device="cuda",
             use_external_data=external_data,  # Toggle between file and custom prompts
-            max_workers=1  # Adjust based on your CPU/GPU resources (4-8 recommended)
+            max_workers=3  # Adjust based on your CPU/GPU resources (4-8 recommended)
         )
 
         print("\n" + "="*80)
