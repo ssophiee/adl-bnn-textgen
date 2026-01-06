@@ -61,9 +61,9 @@ def _detect_model_type(model_path: str) -> str:
 class EvaluationConfig:
     """Configuration for the evaluation pipeline."""
 
-    DEFAULT_TEMPERATURE = [0.3, 0.8]
-    DEFAULT_TOP_K = [10, 20, 50]
-    DEFAULT_NUM_SAMPLES = [10, 20, 30]
+    DEFAULT_TEMPERATURE = [0.3, 0.8] 
+    DEFAULT_TOP_K = [10, 50] # removed 20
+    DEFAULT_NUM_SAMPLES = [10, 30] # removed 20
     DEFAULT_MAX_NEW_TOKENS = 600
   
     
@@ -831,7 +831,7 @@ def run_evaluation_pipeline(
         if extracted_prompts_path.exists():
             with open(extracted_prompts_path, 'r') as f:
                 extracted_prompts = json.load(f)
-            test_prompts = extracted_prompts['all_prompts'][::2]
+            test_prompts = extracted_prompts['all_prompts'][::2][::2] # 4 times less
             print(f"Loaded {len(test_prompts)} prompts from extracted_prompts.json")
             print(f"  Train prompts: {len(extracted_prompts['train_prompts'])}")
             print(f"  Val prompts: {len(extracted_prompts['val_prompts'])}\n")
@@ -947,11 +947,11 @@ if __name__ == "__main__":
         results, full_data = run_evaluation_pipeline(
             test_prompts=test_prompts if external_data else None,
             model_paths=model_paths,
-            change_params=False,  # Set to True to sweep hyperparameters
+            change_params=True,  # Set to True to sweep hyperparameters
             use_local_qwen=False,  # Set to True to use local Qwen model
             device="cuda",
             use_external_data=external_data,  # Toggle between file and custom prompts
-            max_workers=3  # Adjust based on your CPU/GPU resources (4-8 recommended)
+            max_workers=2  # Adjust based on your CPU/GPU resources (4-8 recommended)
         )
 
         print("\n" + "="*80)
