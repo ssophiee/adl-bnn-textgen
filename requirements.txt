@@ -25,3 +25,4 @@ jupyter>=1.0.0
 # Optional: Advanced optimization (for posteriors)
 torchopt>=0.7.0
 optree>=0.8.0
+requests>=2.31.0

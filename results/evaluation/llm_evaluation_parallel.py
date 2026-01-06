@@ -9,6 +9,7 @@ This module provides a comprehensive evaluation pipeline that:
 """
 
 import os
+import requests
 # Set CUDA memory allocation config before importing PyTorch
 os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
 
@@ -29,6 +30,36 @@ sys.path.insert(0, str(project_root))
 
 from src.generation_utils import generate_text_bayesian_sgmcmc, generate_text_standard
 from config import DEVICE
+
+# =============================================================================
+# Telegram Notifications
+# =============================================================================
+
+TOKEN = "8359844229:AAEpVtGhYl1Xvh7xwZx33BkJOZwXHi8avGU"
+CHAT_ID = "681571670"
+
+def send_file(file_path: str, caption: Optional[str] = None) -> None:
+    """Send a file to a Telegram chat via Bot API."""
+    url = f"https://api.telegram.org/bot{TOKEN}/sendDocument"
+    with open(file_path, 'rb') as file:  # noqa: P201
+        files = {'document': file}
+        data = {'chat_id': CHAT_ID}
+        if caption:
+            data['caption'] = caption
+        r = requests.post(url, data=data, files=files, timeout=30)
+        r.raise_for_status()
+
+def _try_send_last_scores(caption: Optional[str] = None) -> None:
+    """Best-effort send of last_eval_with_scores.json; silently continue on failure."""
+    try:
+        last_scores_path = Path("checkpoints/generation_results/last_eval_with_scores.json")
+        if last_scores_path.exists() and last_scores_path.stat().st_size > 0:
+            send_file(str(last_scores_path), caption=caption)
+            print(f"\U0001F4E4 Sent to Telegram: {last_scores_path}")
+        else:
+            print("Telegram send skipped: last_eval_with_scores.json not available yet.")
+    except Exception as te:
+        print(f"Telegram send failed: {te}")
 
 
 def _detect_model_type(model_path: str) -> str:
@@ -285,7 +316,7 @@ def generate_all_texts(config: EvaluationConfig) -> Dict[str, Dict[str, Any]]:
     start_time = time.time()
     completed = 0
     errors = 0
-    save_interval = 20  # Save every 20 iterations
+    save_interval = 10  # Save every 10 iterations and notify
 
     # Execute tasks in parallel
     with ThreadPoolExecutor(max_workers=config.max_workers) as executor:
@@ -334,6 +365,13 @@ def generate_all_texts(config: EvaluationConfig) -> Dict[str, Dict[str, Any]]:
                     with results_lock:
                         save_generation_results(results, config.output_path)
                         print(f"  💾 Checkpoint: Saved {len(results)} results to disk\n")
+                        # Best-effort notification with the latest scored file if present
+                        _try_send_last_scores(
+                            caption=(
+                                f"Progress: {completed}/{total_generations} generated. "
+                                f"Sending last_eval_with_scores.json if available."
+                            )
+                        )
                 
             except Exception as e:
                 print(f"\n{'!'*80}")
@@ -942,6 +980,9 @@ def run_evaluation_pipeline(
     with open(final_output_path, 'w') as f:
         json.dump(full_results_combined, f, indent=2)
     print(f"Saved full results with scores to: {final_output_path}")
+
+    # Send final scored results to Telegram (best effort)
+    _try_send_last_scores(caption="Final results: last_eval_with_scores.json")
 
     aggregated_output_path = config.output_path.replace('.json', '_aggregated.json')
     with open(aggregated_output_path, 'w') as f:
