@@ -102,6 +102,8 @@ class EvaluationConfig:
         self.output_path = output_path
         self.device = device
         self.max_workers = max_workers
+        # Optional set of combos to skip (model_path, prompt, temperature, top_k, num_samples)
+        self.skip_combos: Optional[set] = None
 
         # Validate model_types length matches model_paths
         if len(self.model_types) != len(self.model_paths):
@@ -216,22 +218,6 @@ def generate_all_texts(config: EvaluationConfig) -> Dict[str, Dict[str, Any]]:
     """
     results = {}
     results_lock = Lock()
-    
-    total_generations = (len(config.model_paths) *
-                        len(config.test_prompts) *
-                        len(config.temperatures) *
-                        len(config.top_k_values) *
-                        len(config.num_samples_values))
-
-    print(f"\n{'='*80}")
-    print(f"Starting Parallel Text Generation Phase")
-    print(f"{'='*80}")
-    print(f"Total generations to perform: {total_generations}")
-    print(f"Models: {len(config.model_paths)}")
-    print(f"Prompts: {len(config.test_prompts)}")
-    print(f"Parameter combinations: {len(config.temperatures) * len(config.top_k_values) * len(config.num_samples_values)}")
-    print(f"Max parallel workers: {config.max_workers}")
-    print(f"{'='*80}\n")
 
     # Load prompt sources once at the beginning
     prompt_sources = {}
@@ -256,6 +242,11 @@ def generate_all_texts(config: EvaluationConfig) -> Dict[str, Dict[str, Any]]:
             for temperature in config.temperatures:
                 for top_k in config.top_k_values:
                     for num_samples in config.num_samples_values:
+                        # Skip if this combo was already evaluated previously
+                        if config.skip_combos is not None:
+                            combo_key = (str(model_path), str(prompt), float(temperature), int(top_k), int(num_samples))
+                            if combo_key in config.skip_combos:
+                                continue
                         task_id += 1
                         tasks.append({
                             'model_path': model_path,
@@ -268,8 +259,27 @@ def generate_all_texts(config: EvaluationConfig) -> Dict[str, Dict[str, Any]]:
                             'max_new_tokens': config.max_new_tokens,
                             'device': config.device,
                             'task_id': task_id,
-                            'total': total_generations
+                            'total': 0  # will be updated after tasks are built
                         })
+
+    # Compute final total after applying any skips
+    total_generations = len(tasks)
+
+    print(f"\n{'='*80}")
+    print(f"Starting Parallel Text Generation Phase")
+    print(f"{'='*80}")
+    print(f"Total generations to perform: {total_generations}")
+    print(f"Models: {len(config.model_paths)}")
+    print(f"Prompts: {len(config.test_prompts)}")
+    print(f"Parameter combinations: {len(config.temperatures) * len(config.top_k_values) * len(config.num_samples_values)}")
+    if config.skip_combos is not None:
+        print(f"Skipping {len(config.skip_combos)} previously completed combo(s)")
+    print(f"Max parallel workers: {config.max_workers}")
+    print(f"{'='*80}\n")
+
+    # Update total on each task for progress reporting
+    for t in tasks:
+        t['total'] = total_generations
 
     print(f"\nStarting parallel execution with {config.max_workers} workers...\n")
     start_time = time.time()
@@ -778,7 +788,7 @@ def run_evaluation_pipeline(
     test_prompts: Optional[List[str]] = None,
     model_paths: List[str] = None,
     change_params: bool = False,
-    output_path: str = "checkpoints/generation_results/generation_results_testing.json",
+    output_path: str = "checkpoints/generation_results/last_eval.json",
     use_local_qwen: bool = False,
     model_types: Optional[List[str]] = None,
     qwen_model: str = "Qwen/Qwen2.5-7B-Instruct",
@@ -853,6 +863,42 @@ def run_evaluation_pipeline(
         max_workers=max_workers
     )
 
+    # Deduplication: load previous results with scores to skip already-run combos
+    previous_scores_path = Path("checkpoints/generation_results/last_eval_with_scores.json")
+    previous_full_results: Dict[str, Dict] = {}
+    skip_set = set()
+    if previous_scores_path.exists() and previous_scores_path.stat().st_size > 0:
+        try:
+            with open(previous_scores_path, 'r') as pf:
+                previous_full_results = json.load(pf)
+            # Build skip set: (model_path, prompt, temperature, top_k, num_samples)
+            for _uid, res in previous_full_results.items():
+                try:
+                    # Only skip successful generations; re-run failed ones
+                    if 'error' in res:
+                        continue
+                    combo = (
+                        str(res.get('model_path', '')),
+                        str(res.get('prompt', '')),
+                        float(res.get('temperature', 0.0)),
+                        int(res.get('top_k', 0)),
+                        int(res.get('num_samples', 0))
+                    )
+                    skip_set.add(combo)
+                except Exception:
+                    # If any entry is malformed, ignore it for skipping
+                    continue
+            print(f"Found {len(previous_full_results)} prior result(s); will skip {len(skip_set)} combo(s).")
+        except Exception as e:
+            print(f"Note: Could not load previous results from {previous_scores_path}: {e}. Proceeding without skips.")
+            previous_full_results = {}
+            skip_set = set()
+    else:
+        print("No prior results found or file empty; running all combos.")
+
+    # Attach skip set to config for generation filtering
+    config.skip_combos = skip_set if skip_set else None
+
     # Phase 1: Generate all texts
     generation_results = generate_all_texts(config)
 
@@ -866,16 +912,35 @@ def run_evaluation_pipeline(
         use_local=use_local_qwen
     )
 
-    # Phase 3: Aggregate results
-    aggregated_results, full_results = aggregate_results(
-        generation_results,
-        evaluation_scores
+    # Phase 3: Merge with previous and aggregate
+    # Build combined evaluation scores (previous + new)
+    combined_eval_scores: Dict[str, Dict] = {}
+    # Previous scores (if available in file)
+    for puid, pres in previous_full_results.items():
+        if all(k in pres for k in ('quality_score', 'diversity_score', 'relevance_score')):
+            combined_eval_scores[puid] = {
+                'quality_score': pres['quality_score'],
+                'diversity_score': pres['diversity_score'],
+                'relevance_score': pres['relevance_score'],
+                'brief_reasoning': pres.get('brief_reasoning', '')
+            }
+    # New scores
+    combined_eval_scores.update(evaluation_scores)
+
+    # Combine generation results (previous + new)
+    combined_generation_results: Dict[str, Dict] = {}
+    combined_generation_results.update(previous_full_results)
+    combined_generation_results.update(generation_results)
+
+    aggregated_results, full_results_combined = aggregate_results(
+        combined_generation_results,
+        combined_eval_scores
     )
 
-    # Save final results
-    final_output_path = config.output_path.replace('.json', '_with_scores.json')
+    # Save final combined results to the requested file
+    final_output_path = str(previous_scores_path)
     with open(final_output_path, 'w') as f:
-        json.dump(full_results, f, indent=2)
+        json.dump(full_results_combined, f, indent=2)
     print(f"Saved full results with scores to: {final_output_path}")
 
     aggregated_output_path = config.output_path.replace('.json', '_aggregated.json')
@@ -892,7 +957,7 @@ def run_evaluation_pipeline(
     print(f"# Ended at: {end_time.strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"{'#'*80}\n")
 
-    return aggregated_results, full_results
+    return aggregated_results, full_results_combined
 
 
 # =============================================================================
