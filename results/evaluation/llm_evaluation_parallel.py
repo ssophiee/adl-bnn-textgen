@@ -1036,8 +1036,8 @@ if __name__ == "__main__":
         model_paths.append(baoa_models[-1])
 
     # model_paths = ["checkpoints\\baseline\\baseline_model_2k.pt"]
-    model_paths = ["/content/drive/MyDrive/samplers/baoa_sampler/run_20251224-145920/baoa_model.pt",
-              "/content/drive/MyDrive/samplers/sghmc_sampler/run_20251226-113201/sghmc_model.pt"]
+    # model_paths = ["/content/drive/MyDrive/samplers/baoa_sampler/run_20251224-145920/baoa_model.pt",
+    #           "/content/drive/MyDrive/samplers/sghmc_sampler/run_20251226-113201/sghmc_model.pt"]
 
 
     print(f"\nFound {len(model_paths)} models to evaluate:")
