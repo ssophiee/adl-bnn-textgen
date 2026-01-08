@@ -1,0 +1,290 @@
+{
+    "baseline_temp0.3_topk10_samples10_baseline": {
+        "model_path": "/content/drive/MyDrive/baseline/baseline_model_2k.pt",
+        "model_name": "baseline",
+        "temperature": 0.3,
+        "top_k": 10,
+        "overall": {
+            "num_samples": 4,
+            "num_prompts_not_found": 1,
+            "bleu": 0.2374507051675465,
+            "rouge1": 0.7265746742786999,
+            "rouge2": 0.473879515405446,
+            "rougeL": 0.38363122085084433,
+            "perplexity": 59.152244567871094,
+            "avg_text_length": 634.75
+        },
+        "train": {
+            "num_samples": 3,
+            "num_prompts_not_found": 0,
+            "bleu": 0.2367438656765538,
+            "rouge1": 0.7427290363773222,
+            "rouge2": 0.4763247232211758,
+            "rougeL": 0.385614159989967,
+            "perplexity": 70.41405868530273,
+            "avg_text_length": 635.6666666666666
+        },
+        "val": {
+            "num_samples": 1,
+            "num_prompts_not_found": 1,
+            "bleu": 0.23904383771542004,
+            "rouge1": 0.6781115879828326,
+            "rouge2": 0.4665438919582566,
+            "rougeL": 0.37768240343347637,
+            "perplexity": 25.366802215576172,
+            "avg_text_length": 632.0
+        }
+    },
+    "baseline_temp0.3_topk10_samples30_baseline": {
+        "model_path": "/content/drive/MyDrive/baseline/baseline_model_2k.pt",
+        "model_name": "baseline",
+        "temperature": 0.3,
+        "top_k": 10,
+        "overall": {
+            "num_samples": 4,
+            "num_prompts_not_found": 1,
+            "bleu": 0.24430820808844553,
+            "rouge1": 0.7302546871581844,
+            "rouge2": 0.4857499854359294,
+            "rougeL": 0.38578049601989955,
+            "perplexity": 46.52504920959473,
+            "avg_text_length": 634.75
+        },
+        "train": {
+            "num_samples": 3,
+            "num_prompts_not_found": 0,
+            "bleu": 0.24450042228014454,
+            "rouge1": 0.72965084386266,
+            "rouge2": 0.4901057714549859,
+            "rougeL": 0.38152668809133633,
+            "perplexity": 50.78960673014323,
+            "avg_text_length": 635.6666666666666
+        },
+        "val": {
+            "num_samples": 1,
+            "num_prompts_not_found": 1,
+            "bleu": 0.24360746853611465,
+            "rouge1": 0.7320662170447579,
+            "rouge2": 0.47268262737876,
+            "rougeL": 0.39730226854690376,
+            "perplexity": 33.73136520385742,
+            "avg_text_length": 632.0
+        }
+    },
+    "baseline_temp0.3_topk50_samples10_baseline": {
+        "model_path": "/content/drive/MyDrive/baseline/baseline_model_2k.pt",
+        "model_name": "baseline",
+        "temperature": 0.3,
+        "top_k": 50,
+        "overall": {
+            "num_samples": 4,
+            "num_prompts_not_found": 1,
+            "bleu": 0.23866634949771082,
+            "rouge1": 0.7268561339209524,
+            "rouge2": 0.48210114735077086,
+            "rougeL": 0.3805601302822867,
+            "perplexity": 36.024972438812256,
+            "avg_text_length": 634.75
+        },
+        "train": {
+            "num_samples": 3,
+            "num_prompts_not_found": 0,
+            "bleu": 0.23201818658206752,
+            "rouge1": 0.7238931979767614,
+            "rouge2": 0.4717354360830004,
+            "rougeL": 0.37538816471727743,
+            "perplexity": 34.40217526753744,
+            "avg_text_length": 635.6666666666666
+        },
+        "val": {
+            "num_samples": 1,
+            "num_prompts_not_found": 1,
+            "bleu": 0.25797288738594193,
+            "rouge1": 0.7357449417535253,
+            "rouge2": 0.5131982811540823,
+            "rougeL": 0.3960760269773145,
+            "perplexity": 40.89336395263672,
+            "avg_text_length": 632.0
+        }
+    },
+    "baseline_temp0.3_topk50_samples30_baseline": {
+        "model_path": "/content/drive/MyDrive/baseline/baseline_model_2k.pt",
+        "model_name": "baseline",
+        "temperature": 0.3,
+        "top_k": 50,
+        "overall": {
+            "num_samples": 4,
+            "num_prompts_not_found": 1,
+            "bleu": 0.24507506682010555,
+            "rouge1": 0.7468115829980337,
+            "rouge2": 0.4968402662701792,
+            "rougeL": 0.384469074661852,
+            "perplexity": 86.29711246490479,
+            "avg_text_length": 634.75
+        },
+        "train": {
+            "num_samples": 3,
+            "num_prompts_not_found": 0,
+            "bleu": 0.25197253265714314,
+            "rouge1": 0.7480479802736916,
+            "rouge2": 0.5089853028476544,
+            "rougeL": 0.37868178518607626,
+            "perplexity": 82.5876579284668,
+            "avg_text_length": 635.6666666666666
+        },
+        "val": {
+            "num_samples": 1,
+            "num_prompts_not_found": 1,
+            "bleu": 0.2239849159042663,
+            "rouge1": 0.7431023911710606,
+            "rouge2": 0.4604051565377532,
+            "rougeL": 0.3997547516860821,
+            "perplexity": 97.42533874511719,
+            "avg_text_length": 632.0
+        }
+    },
+    "baseline_temp0.8_topk10_samples10_baseline": {
+        "model_path": "/content/drive/MyDrive/baseline/baseline_model_2k.pt",
+        "model_name": "baseline",
+        "temperature": 0.8,
+        "top_k": 10,
+        "overall": {
+            "num_samples": 4,
+            "num_prompts_not_found": 1,
+            "bleu": 0.2746818735895187,
+            "rouge1": 0.7562654798944558,
+            "rouge2": 0.5614187296456047,
+            "rougeL": 0.3796594694882325,
+            "perplexity": 172.01794052124023,
+            "avg_text_length": 634.75
+        },
+        "train": {
+            "num_samples": 3,
+            "num_prompts_not_found": 0,
+            "bleu": 0.2729015999173531,
+            "rouge1": 0.757383198616683,
+            "rouge2": 0.5607130023267363,
+            "rougeL": 0.3750047780382646,
+            "perplexity": 163.57435099283853,
+            "avg_text_length": 635.6666666666666
+        },
+        "val": {
+            "num_samples": 1,
+            "num_prompts_not_found": 1,
+            "bleu": 0.27987829661609553,
+            "rouge1": 0.7529123237277744,
+            "rouge2": 0.56353591160221,
+            "rougeL": 0.3936235438381361,
+            "perplexity": 197.34869384765625,
+            "avg_text_length": 632.0
+        }
+    },
+    "baseline_temp0.8_topk10_samples30_baseline": {
+        "model_path": "/content/drive/MyDrive/baseline/baseline_model_2k.pt",
+        "model_name": "baseline",
+        "temperature": 0.8,
+        "top_k": 10,
+        "overall": {
+            "num_samples": 4,
+            "num_prompts_not_found": 1,
+            "bleu": 0.275646017381013,
+            "rouge1": 0.7486150038230762,
+            "rouge2": 0.5534844146654128,
+            "rougeL": 0.37906945094252087,
+            "perplexity": 127.04869270324707,
+            "avg_text_length": 634.75
+        },
+        "train": {
+            "num_samples": 3,
+            "num_prompts_not_found": 0,
+            "bleu": 0.27355414596500366,
+            "rouge1": 0.7512700357534742,
+            "rouge2": 0.5558634020789502,
+            "rougeL": 0.37176560350480403,
+            "perplexity": 137.1759287516276,
+            "avg_text_length": 635.6666666666666
+        },
+        "val": {
+            "num_samples": 1,
+            "num_prompts_not_found": 1,
+            "bleu": 0.2815509586626667,
+            "rouge1": 0.7406499080318824,
+            "rouge2": 0.5463474524248005,
+            "rougeL": 0.40098099325567144,
+            "perplexity": 96.66707611083984,
+            "avg_text_length": 632.0
+        }
+    },
+    "baseline_temp0.8_topk50_samples10_baseline": {
+        "model_path": "/content/drive/MyDrive/baseline/baseline_model_2k.pt",
+        "model_name": "baseline",
+        "temperature": 0.8,
+        "top_k": 50,
+        "overall": {
+            "num_samples": 4,
+            "num_prompts_not_found": 1,
+            "bleu": 0.28539729423161847,
+            "rouge1": 0.7578127856960455,
+            "rouge2": 0.5810484624876044,
+            "rougeL": 0.3826555356314064,
+            "perplexity": 198.90084648132324,
+            "avg_text_length": 634.75
+        },
+        "train": {
+            "num_samples": 3,
+            "num_prompts_not_found": 0,
+            "bleu": 0.2755731276578984,
+            "rouge1": 0.7553588011201718,
+            "rouge2": 0.5692882712439596,
+            "rougeL": 0.3733876999623867,
+            "perplexity": 154.93160756429037,
+            "avg_text_length": 635.6666666666666
+        },
+        "val": {
+            "num_samples": 1,
+            "num_prompts_not_found": 1,
+            "bleu": 0.31370675478134247,
+            "rouge1": 0.7651747394236665,
+            "rouge2": 0.616329036218539,
+            "rougeL": 0.40711220110361745,
+            "perplexity": 330.80841064453125,
+            "avg_text_length": 632.0
+        }
+    },
+    "baseline_temp0.8_topk50_samples30_baseline": {
+        "model_path": "/content/drive/MyDrive/baseline/baseline_model_2k.pt",
+        "model_name": "baseline",
+        "temperature": 0.8,
+        "top_k": 50,
+        "overall": {
+            "num_samples": 4,
+            "num_prompts_not_found": 1,
+            "bleu": 0.26378594180624015,
+            "rouge1": 0.7439972011753512,
+            "rouge2": 0.5482131626694438,
+            "rougeL": 0.3695762834180678,
+            "perplexity": 279.1952323913574,
+            "avg_text_length": 634.75
+        },
+        "train": {
+            "num_samples": 3,
+            "num_prompts_not_found": 0,
+            "bleu": 0.2575376339603064,
+            "rouge1": 0.7545141509233582,
+            "rouge2": 0.5439240777479222,
+            "rougeL": 0.36850923217238396,
+            "perplexity": 341.4938456217448,
+            "avg_text_length": 635.6666666666666
+        },
+        "val": {
+            "num_samples": 1,
+            "num_prompts_not_found": 1,
+            "bleu": 0.2810547932943665,
+            "rouge1": 0.7124463519313304,
+            "rouge2": 0.5610804174340086,
+            "rougeL": 0.3727774371551196,
+            "perplexity": 92.29910278320312,
+            "avg_text_length": 632.0
+        }
+    }
+}

@@ -1,0 +1,578 @@
+{
+    "baoa_temp0.3_topk10_samples10_run_20251224-145920": {
+        "model_path": "/content/drive/MyDrive/samplers/baoa_sampler/run_20251224-145920/baoa_model.pt",
+        "model_name": "baoa",
+        "temperature": 0.3,
+        "top_k": 10,
+        "overall": {
+            "num_samples": 4,
+            "num_prompts_not_found": 1,
+            "bleu": 0.23338351780012792,
+            "rouge1": 0.718866644061357,
+            "rouge2": 0.4703100013466997,
+            "rougeL": 0.37353228518727055,
+            "perplexity": 39.520681858062744,
+            "avg_text_length": 634.75
+        },
+        "train": {
+            "num_samples": 3,
+            "num_prompts_not_found": 0,
+            "bleu": 0.23406613700489512,
+            "rouge1": 0.7193717526785802,
+            "rouge2": 0.46951912600267964,
+            "rougeL": 0.3676526933500415,
+            "perplexity": 35.87831942240397,
+            "avg_text_length": 635.6666666666666
+        },
+        "val": {
+            "num_samples": 1,
+            "num_prompts_not_found": 1,
+            "bleu": 0.2313266356672956,
+            "rouge1": 0.7173513182096873,
+            "rouge2": 0.47268262737876,
+            "rougeL": 0.3911710606989577,
+            "perplexity": 50.447792053222656,
+            "avg_text_length": 632.0
+        }
+    },
+    "baoa_temp0.3_topk50_samples10_run_20251224-145920": {
+        "model_path": "/content/drive/MyDrive/samplers/baoa_sampler/run_20251224-145920/baoa_model.pt",
+        "model_name": "baoa",
+        "temperature": 0.3,
+        "top_k": 50,
+        "overall": {
+            "num_samples": 4,
+            "num_prompts_not_found": 1,
+            "bleu": 0.2604730546193812,
+            "rouge1": 0.7461457002635661,
+            "rouge2": 0.5114499499646754,
+            "rougeL": 0.3961364007617103,
+            "perplexity": 71.2529411315918,
+            "avg_text_length": 634.75
+        },
+        "train": {
+            "num_samples": 3,
+            "num_prompts_not_found": 0,
+            "bleu": 0.2556672170102492,
+            "rouge1": 0.7434814119189671,
+            "rouge2": 0.5055469355371035,
+            "rougeL": 0.3880671449673159,
+            "perplexity": 75.03141530354817,
+            "avg_text_length": 635.6666666666666
+        },
+        "val": {
+            "num_samples": 1,
+            "num_prompts_not_found": 1,
+            "bleu": 0.274578658700404,
+            "rouge1": 0.7541385652973636,
+            "rouge2": 0.529158993247391,
+            "rougeL": 0.4193746167995095,
+            "perplexity": 59.91766357421875,
+            "avg_text_length": 632.0
+        }
+    },
+    "baoa_temp0.3_topk10_samples30_run_20251224-145920": {
+        "model_path": "/content/drive/MyDrive/samplers/baoa_sampler/run_20251224-145920/baoa_model.pt",
+        "model_name": "baoa",
+        "temperature": 0.3,
+        "top_k": 10,
+        "overall": {
+            "num_samples": 4,
+            "num_prompts_not_found": 1,
+            "bleu": 0.24437623078775073,
+            "rouge1": 0.730935826489511,
+            "rouge2": 0.4855583057296242,
+            "rougeL": 0.37387543914039284,
+            "perplexity": 42.224146366119385,
+            "avg_text_length": 634.75
+        },
+        "train": {
+            "num_samples": 3,
+            "num_prompts_not_found": 0,
+            "bleu": 0.23916182445448458,
+            "rouge1": 0.7362814902958451,
+            "rouge2": 0.4775727276722388,
+            "rougeL": 0.3693364735237938,
+            "perplexity": 46.767402013142906,
+            "avg_text_length": 635.6666666666666
+        },
+        "val": {
+            "num_samples": 1,
+            "num_prompts_not_found": 1,
+            "bleu": 0.2594197223998867,
+            "rouge1": 0.714898835070509,
+            "rouge2": 0.5095150399017802,
+            "rougeL": 0.38749233599019006,
+            "perplexity": 28.59439468383789,
+            "avg_text_length": 632.0
+        }
+    },
+    "baoa_temp0.8_topk10_samples10_run_20251224-145920": {
+        "model_path": "/content/drive/MyDrive/samplers/baoa_sampler/run_20251224-145920/baoa_model.pt",
+        "model_name": "baoa",
+        "temperature": 0.8,
+        "top_k": 10,
+        "overall": {
+            "num_samples": 4,
+            "num_prompts_not_found": 1,
+            "bleu": 0.2728989957872163,
+            "rouge1": 0.7526070054305816,
+            "rouge2": 0.5448568976414374,
+            "rougeL": 0.37905488879395643,
+            "perplexity": 146.18920135498047,
+            "avg_text_length": 634.75
+        },
+        "train": {
+            "num_samples": 3,
+            "num_prompts_not_found": 0,
+            "bleu": 0.2695005794260998,
+            "rouge1": 0.755775210183755,
+            "rouge2": 0.5423138009068152,
+            "rougeL": 0.3746074176357596,
+            "perplexity": 161.94862620035806,
+            "avg_text_length": 635.6666666666666
+        },
+        "val": {
+            "num_samples": 1,
+            "num_prompts_not_found": 1,
+            "bleu": 0.28275915159814646,
+            "rouge1": 0.7431023911710606,
+            "rouge2": 0.5524861878453039,
+            "rougeL": 0.3923973022685469,
+            "perplexity": 98.91101837158203,
+            "avg_text_length": 632.0
+        }
+    },
+    "baoa_temp0.3_topk50_samples30_run_20251224-145920": {
+        "model_path": "/content/drive/MyDrive/samplers/baoa_sampler/run_20251224-145920/baoa_model.pt",
+        "model_name": "baoa",
+        "temperature": 0.3,
+        "top_k": 50,
+        "overall": {
+            "num_samples": 4,
+            "num_prompts_not_found": 1,
+            "bleu": 0.22120129686833312,
+            "rouge1": 0.7121196807782214,
+            "rouge2": 0.4412478943168635,
+            "rougeL": 0.382086751151394,
+            "perplexity": 52.151811838150024,
+            "avg_text_length": 634.75
+        },
+        "train": {
+            "num_samples": 3,
+            "num_prompts_not_found": 0,
+            "bleu": 0.21851273288861828,
+            "rouge1": 0.7046533409763165,
+            "rouge2": 0.4385453814955356,
+            "rougeL": 0.3733361873107898,
+            "perplexity": 50.38574504852295,
+            "avg_text_length": 635.6666666666666
+        },
+        "val": {
+            "num_samples": 1,
+            "num_prompts_not_found": 1,
+            "bleu": 0.22917924012741694,
+            "rouge1": 0.7345187001839362,
+            "rouge2": 0.4493554327808471,
+            "rougeL": 0.40833844267320657,
+            "perplexity": 57.450042724609375,
+            "avg_text_length": 632.0
+        }
+    },
+    "baoa_temp0.8_topk50_samples10_run_20251224-145920": {
+        "model_path": "/content/drive/MyDrive/samplers/baoa_sampler/run_20251224-145920/baoa_model.pt",
+        "model_name": "baoa",
+        "temperature": 0.8,
+        "top_k": 50,
+        "overall": {
+            "num_samples": 4,
+            "num_prompts_not_found": 1,
+            "bleu": 0.2749207524839479,
+            "rouge1": 0.7467573155338493,
+            "rouge2": 0.5583320059532175,
+            "rougeL": 0.3805979537047675,
+            "perplexity": 141.47005653381348,
+            "avg_text_length": 634.75
+        },
+        "train": {
+            "num_samples": 3,
+            "num_prompts_not_found": 0,
+            "bleu": 0.26453230224018537,
+            "rouge1": 0.7442968989460113,
+            "rouge2": 0.5435014018398129,
+            "rougeL": 0.3717598712384842,
+            "perplexity": 133.20570119222006,
+            "avg_text_length": 635.6666666666666
+        },
+        "val": {
+            "num_samples": 1,
+            "num_prompts_not_found": 1,
+            "bleu": 0.3049640018783594,
+            "rouge1": 0.7541385652973636,
+            "rouge2": 0.6028238182934316,
+            "rougeL": 0.40711220110361745,
+            "perplexity": 166.26329040527344,
+            "avg_text_length": 632.0
+        }
+    },
+    "baoa_temp0.8_topk10_samples30_run_20251224-145920": {
+        "model_path": "/content/drive/MyDrive/samplers/baoa_sampler/run_20251224-145920/baoa_model.pt",
+        "model_name": "baoa",
+        "temperature": 0.8,
+        "top_k": 10,
+        "overall": {
+            "num_samples": 4,
+            "num_prompts_not_found": 1,
+            "bleu": 0.2792707150449237,
+            "rouge1": 0.7547557218625911,
+            "rouge2": 0.5596029512423781,
+            "rougeL": 0.37963656126935946,
+            "perplexity": 178.9916877746582,
+            "avg_text_length": 634.75
+        },
+        "train": {
+            "num_samples": 3,
+            "num_prompts_not_found": 0,
+            "bleu": 0.2704498938951684,
+            "rouge1": 0.75005647443931,
+            "rouge2": 0.5431497504185258,
+            "rougeL": 0.3713186035022211,
+            "perplexity": 164.4620564778646,
+            "avg_text_length": 635.6666666666666
+        },
+        "val": {
+            "num_samples": 1,
+            "num_prompts_not_found": 1,
+            "bleu": 0.3051893892560444,
+            "rouge1": 0.768853464132434,
+            "rouge2": 0.6089625537139349,
+            "rougeL": 0.39852851011649293,
+            "perplexity": 222.58058166503906,
+            "avg_text_length": 632.0
+        }
+    },
+    "baoa_temp0.8_topk50_samples30_run_20251224-145920": {
+        "model_path": "/content/drive/MyDrive/samplers/baoa_sampler/run_20251224-145920/baoa_model.pt",
+        "model_name": "baoa",
+        "temperature": 0.8,
+        "top_k": 50,
+        "overall": {
+            "num_samples": 4,
+            "num_prompts_not_found": 1,
+            "bleu": 0.26207104345025467,
+            "rouge1": 0.7516902769734515,
+            "rouge2": 0.5451779378692247,
+            "rougeL": 0.37294753594234914,
+            "perplexity": 174.0866413116455,
+            "avg_text_length": 634.75
+        },
+        "train": {
+            "num_samples": 3,
+            "num_prompts_not_found": 0,
+            "bleu": 0.2604165823067338,
+            "rouge1": 0.7496479392958916,
+            "rouge2": 0.534556873983194,
+            "rougeL": 0.36973425801918774,
+            "perplexity": 179.47658030192056,
+            "avg_text_length": 635.6666666666666
+        },
+        "val": {
+            "num_samples": 1,
+            "num_prompts_not_found": 1,
+            "bleu": 0.2667576941738805,
+            "rouge1": 0.7578172900061313,
+            "rouge2": 0.5770411295273175,
+            "rougeL": 0.38258736971183327,
+            "perplexity": 157.91690063476562,
+            "avg_text_length": 632.0
+        }
+    },
+    "sghmc_temp0.3_topk10_samples10_run_20251226-113201": {
+        "model_path": "/content/drive/MyDrive/samplers/sghmc_sampler/run_20251226-113201/sghmc_model.pt",
+        "model_name": "sghmc",
+        "temperature": 0.3,
+        "top_k": 10,
+        "overall": {
+            "num_samples": 4,
+            "num_prompts_not_found": 1,
+            "bleu": 0.2359624619606697,
+            "rouge1": 0.7376271334118731,
+            "rouge2": 0.47168504569334097,
+            "rougeL": 0.3851675109463539,
+            "perplexity": 61.26306629180908,
+            "avg_text_length": 634.75
+        },
+        "train": {
+            "num_samples": 3,
+            "num_prompts_not_found": 0,
+            "bleu": 0.23641616956203845,
+            "rouge1": 0.7366195418718701,
+            "rouge2": 0.4785352869897343,
+            "rougeL": 0.37826136141712907,
+            "perplexity": 63.990718841552734,
+            "avg_text_length": 635.6666666666666
+        },
+        "val": {
+            "num_samples": 1,
+            "num_prompts_not_found": 1,
+            "bleu": 0.23450484093748974,
+            "rouge1": 0.7406499080318824,
+            "rouge2": 0.4616329036218539,
+            "rougeL": 0.4058859595340282,
+            "perplexity": 53.08012008666992,
+            "avg_text_length": 632.0
+        }
+    },
+    "sghmc_temp0.3_topk50_samples10_run_20251226-113201": {
+        "model_path": "/content/drive/MyDrive/samplers/sghmc_sampler/run_20251226-113201/sghmc_model.pt",
+        "model_name": "sghmc",
+        "temperature": 0.3,
+        "top_k": 50,
+        "overall": {
+            "num_samples": 4,
+            "num_prompts_not_found": 1,
+            "bleu": 0.25452816280111373,
+            "rouge1": 0.7375811303854515,
+            "rouge2": 0.50754938851683,
+            "rougeL": 0.38388112036769756,
+            "perplexity": 57.44910287857056,
+            "avg_text_length": 634.75
+        },
+        "train": {
+            "num_samples": 3,
+            "num_prompts_not_found": 0,
+            "bleu": 0.2508055011058621,
+            "rouge1": 0.7304269966553618,
+            "rouge2": 0.4925704554073387,
+            "rougeL": 0.377869019396329,
+            "perplexity": 47.541250228881836,
+            "avg_text_length": 635.6666666666666
+        },
+        "val": {
+            "num_samples": 1,
+            "num_prompts_not_found": 1,
+            "bleu": 0.26556215521615334,
+            "rouge1": 0.7590435315757205,
+            "rouge2": 0.5524861878453039,
+            "rougeL": 0.40098099325567144,
+            "perplexity": 87.17269897460938,
+            "avg_text_length": 632.0
+        }
+    },
+    "sghmc_temp0.3_topk10_samples30_run_20251226-113201": {
+        "model_path": "/content/drive/MyDrive/samplers/sghmc_sampler/run_20251226-113201/sghmc_model.pt",
+        "model_name": "sghmc",
+        "temperature": 0.3,
+        "top_k": 10,
+        "overall": {
+            "num_samples": 4,
+            "num_prompts_not_found": 1,
+            "bleu": 0.24644620157613611,
+            "rouge1": 0.7354893743769828,
+            "rouge2": 0.4818644056404673,
+            "rougeL": 0.38458458528561057,
+            "perplexity": 66.45317840576172,
+            "avg_text_length": 634.75
+        },
+        "train": {
+            "num_samples": 3,
+            "num_prompts_not_found": 0,
+            "bleu": 0.2544766202587153,
+            "rouge1": 0.7337691964920162,
+            "rouge2": 0.49554795648856925,
+            "rougeL": 0.3758491384433524,
+            "perplexity": 74.63580067952473,
+            "avg_text_length": 635.6666666666666
+        },
+        "val": {
+            "num_samples": 1,
+            "num_prompts_not_found": 1,
+            "bleu": 0.2215520510341485,
+            "rouge1": 0.7406499080318824,
+            "rouge2": 0.4493554327808471,
+            "rougeL": 0.4107909258123851,
+            "perplexity": 41.905330657958984,
+            "avg_text_length": 632.0
+        }
+    },
+    "sghmc_temp0.8_topk10_samples10_run_20251226-113201": {
+        "model_path": "/content/drive/MyDrive/samplers/sghmc_sampler/run_20251226-113201/sghmc_model.pt",
+        "model_name": "sghmc",
+        "temperature": 0.8,
+        "top_k": 10,
+        "overall": {
+            "num_samples": 4,
+            "num_prompts_not_found": 1,
+            "bleu": 0.262909557301687,
+            "rouge1": 0.750153175811725,
+            "rouge2": 0.5445707972750204,
+            "rougeL": 0.37836369013784416,
+            "perplexity": 194.71819686889648,
+            "avg_text_length": 634.75
+        },
+        "train": {
+            "num_samples": 3,
+            "num_prompts_not_found": 0,
+            "bleu": 0.26303696211940336,
+            "rouge1": 0.7500509542194348,
+            "rouge2": 0.5398860886114248,
+            "rougeL": 0.37052496411883373,
+            "perplexity": 184.6681925455729,
+            "avg_text_length": 635.6666666666666
+        },
+        "val": {
+            "num_samples": 1,
+            "num_prompts_not_found": 1,
+            "bleu": 0.2623119785269555,
+            "rouge1": 0.7504598405885959,
+            "rouge2": 0.5586249232658073,
+            "rougeL": 0.3948497854077253,
+            "perplexity": 224.86831665039062,
+            "avg_text_length": 632.0
+        }
+    },
+    "sghmc_temp0.3_topk50_samples30_run_20251226-113201": {
+        "model_path": "/content/drive/MyDrive/samplers/sghmc_sampler/run_20251226-113201/sghmc_model.pt",
+        "model_name": "sghmc",
+        "temperature": 0.3,
+        "top_k": 50,
+        "overall": {
+            "num_samples": 4,
+            "num_prompts_not_found": 1,
+            "bleu": 0.23016760035018852,
+            "rouge1": 0.7259363944347994,
+            "rouge2": 0.4539382434414775,
+            "rougeL": 0.37626263910930646,
+            "perplexity": 40.04246997833252,
+            "avg_text_length": 634.75
+        },
+        "train": {
+            "num_samples": 3,
+            "num_prompts_not_found": 0,
+            "bleu": 0.22157046738713976,
+            "rouge1": 0.7198056483328492,
+            "rouge2": 0.4476901154623833,
+            "rougeL": 0.36924942929677407,
+            "perplexity": 35.964088439941406,
+            "avg_text_length": 635.6666666666666
+        },
+        "val": {
+            "num_samples": 1,
+            "num_prompts_not_found": 1,
+            "bleu": 0.2548891060435312,
+            "rouge1": 0.7443286327406499,
+            "rouge2": 0.47268262737876,
+            "rougeL": 0.39730226854690376,
+            "perplexity": 52.277687072753906,
+            "avg_text_length": 632.0
+        }
+    },
+    "sghmc_temp0.8_topk50_samples10_run_20251226-113201": {
+        "model_path": "/content/drive/MyDrive/samplers/sghmc_sampler/run_20251226-113201/sghmc_model.pt",
+        "model_name": "sghmc",
+        "temperature": 0.8,
+        "top_k": 50,
+        "overall": {
+            "num_samples": 4,
+            "num_prompts_not_found": 1,
+            "bleu": 0.26694160645792697,
+            "rouge1": 0.7550717924465573,
+            "rouge2": 0.5622251576470267,
+            "rougeL": 0.37906907456389294,
+            "perplexity": 215.75289916992188,
+            "avg_text_length": 634.75
+        },
+        "train": {
+            "num_samples": 3,
+            "num_prompts_not_found": 0,
+            "bleu": 0.26058592294127936,
+            "rouge1": 0.753747879403503,
+            "rouge2": 0.555878125654507,
+            "rougeL": 0.3729913432362227,
+            "perplexity": 237.45687866210938,
+            "avg_text_length": 635.6666666666666
+        },
+        "val": {
+            "num_samples": 1,
+            "num_prompts_not_found": 1,
+            "bleu": 0.2853358643027012,
+            "rouge1": 0.7590435315757205,
+            "rouge2": 0.5794966236955187,
+            "rougeL": 0.39730226854690376,
+            "perplexity": 150.64080810546875,
+            "avg_text_length": 632.0
+        }
+    },
+    "sghmc_temp0.8_topk10_samples30_run_20251226-113201": {
+        "model_path": "/content/drive/MyDrive/samplers/sghmc_sampler/run_20251226-113201/sghmc_model.pt",
+        "model_name": "sghmc",
+        "temperature": 0.8,
+        "top_k": 10,
+        "overall": {
+            "num_samples": 4,
+            "num_prompts_not_found": 1,
+            "bleu": 0.27140609420437734,
+            "rouge1": 0.7535358204207144,
+            "rouge2": 0.5568831232905601,
+            "rougeL": 0.3757054503380412,
+            "perplexity": 206.58611297607422,
+            "avg_text_length": 634.75
+        },
+        "train": {
+            "num_samples": 3,
+            "num_prompts_not_found": 0,
+            "bleu": 0.26378209024721966,
+            "rouge1": 0.7521086638922422,
+            "rouge2": 0.5477082937101063,
+            "rougeL": 0.36891525812495013,
+            "perplexity": 223.29766337076822,
+            "avg_text_length": 635.6666666666666
+        },
+        "val": {
+            "num_samples": 1,
+            "num_prompts_not_found": 1,
+            "bleu": 0.29350028093648545,
+            "rouge1": 0.7578172900061313,
+            "rouge2": 0.5844076120319214,
+            "rougeL": 0.3960760269773145,
+            "perplexity": 156.4516143798828,
+            "avg_text_length": 632.0
+        }
+    },
+    "sghmc_temp0.8_topk50_samples30_run_20251226-113201": {
+        "model_path": "/content/drive/MyDrive/samplers/sghmc_sampler/run_20251226-113201/sghmc_model.pt",
+        "model_name": "sghmc",
+        "temperature": 0.8,
+        "top_k": 50,
+        "overall": {
+            "num_samples": 4,
+            "num_prompts_not_found": 1,
+            "bleu": 0.2496271674320134,
+            "rouge1": 0.7392025351005804,
+            "rouge2": 0.5250408096919836,
+            "rougeL": 0.36410719451831086,
+            "perplexity": 136.7547206878662,
+            "avg_text_length": 634.75
+        },
+        "train": {
+            "num_samples": 3,
+            "num_prompts_not_found": 0,
+            "bleu": 0.24492778966115533,
+            "rouge1": 0.7395375718365392,
+            "rouge2": 0.5285790701765839,
+            "rougeL": 0.35794713612046997,
+            "perplexity": 135.6867446899414,
+            "avg_text_length": 635.6666666666666
+        },
+        "val": {
+            "num_samples": 1,
+            "num_prompts_not_found": 1,
+            "bleu": 0.2628149244686681,
+            "rouge1": 0.7381974248927039,
+            "rouge2": 0.514426028238183,
+            "rougeL": 0.38258736971183327,
+            "perplexity": 139.95860290527344,
+            "avg_text_length": 632.0
+        }
+    }
+}
