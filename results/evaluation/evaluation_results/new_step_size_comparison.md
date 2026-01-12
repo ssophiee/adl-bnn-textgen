@@ -1,5 +1,11 @@
 # Evaluation Figures — Step Size 5e−06 (Updated)
 
+### TL;DR — Are Bayesian samplers better than baseline?
+
+- Overall, there is no clear across-the-board win over the baseline on BLEU/ROUGE; families are close on means.
+- In this run, the baseline is marginally higher on BLEU/ROUGE (with sizable variance), while Bayesian samplers provide competitive quality.
+- Depending on decoding settings, Bayesian samplers can match or exceed baseline on specific configs; choose based on your priority (e.g., uncertainty, stability/diversity) rather than expecting a universal quality uplift.
+
 Note: In these plots, UNKNOWN denotes the deterministic baseline.
 
 ## Temperature Effects (0.3 vs 0.8)
