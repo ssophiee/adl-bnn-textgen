@@ -11,7 +11,7 @@ def load_checkpoint_for_generation(checkpoint_path, device=DEVICE):
     """
     Load a saved checkpoint and prepare it for text generation.
 
-    This function handles both VI-based samplers (VI, EKF, Laplace) and SGMCMC samplers (SGLD, SGHMC, BAOA).
+    This function handles SGMCMC samplers (SGLD, SGHMC, BAOA) and standard models.
 
     Args:
         checkpoint_path: Path to the saved .pt checkpoint file
@@ -20,14 +20,12 @@ def load_checkpoint_for_generation(checkpoint_path, device=DEVICE):
     Returns:
         dict with:
             - 'sampler_type': Type of sampler used
-            - 'state': Reconstructed state object (for VI-based samplers)
             - 'collected_samples': List of parameter samples (for SGMCMC samplers)
             - 'params': Final parameters (always available)
             - 'model_state_dict': Model state dictionary
 
     Example:
-        >>> checkpoint_data = load_checkpoint_for_generation('path/to/vi_model.pt')
-        >>> # For VI-based generation, use checkpoint_data['state']
+        >>> checkpoint_data = load_checkpoint_for_generation('path/to/sgld_model.pt')
         >>> # For SGMCMC generation, use checkpoint_data['collected_samples']
     """
     # Map to CPU first if device is not available, then move to target device
@@ -40,7 +38,7 @@ def load_checkpoint_for_generation(checkpoint_path, device=DEVICE):
             checkpoint = torch.load(checkpoint_path, map_location='cpu', weights_only=False)
         else:
             raise
-    
+
     # Extract sampler type from metrics
     # Handle different checkpoint formats
     if 'complete_metrics' in checkpoint:
@@ -63,20 +61,8 @@ def load_checkpoint_for_generation(checkpoint_path, device=DEVICE):
         'metrics': metrics
     }
 
-    # For VI-based samplers, reconstruct the state
-    if sampler_type in ['vi', 'ekf', 'laplace']:
-        from posteriors.vi.diag import VIDiagState
-
-        state = VIDiagState(
-            params={k: v.to(device) for k, v in checkpoint['sampler_state_params'].items()},
-            log_sd_diag={k: v.to(device) for k, v in checkpoint['log_sd_diag'].items()},
-            opt_state=checkpoint['opt_state']
-        )
-        result['state'] = state
-        result['log_sd_diag'] = {k: v.to(device) for k, v in checkpoint['log_sd_diag'].items()}
-
-    # For MCMC samplers, load collected samples if available
-    elif sampler_type in ['sgld', 'sghmc', 'baoa']:
+    # For SGMCMC samplers, load collected samples if available
+    if sampler_type in ['sgld', 'sghmc', 'baoa']:
         if 'collected_samples' in checkpoint and checkpoint['collected_samples']:
             result['collected_samples'] = [
                 {k: v.to(device) for k, v in sample.items()}

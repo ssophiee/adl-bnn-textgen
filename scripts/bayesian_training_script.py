@@ -1,18 +1,15 @@
 """
 Bayesian NanoGPT Training Script
 
-Supported samplers:
-- vi: Variational Inference (Diagonal Gaussian)
-- ekf: Extended Kalman Filter
-- laplace: Laplace Approximation
-- sgld: Stochastic Gradient Langevin Dynamics (MCMC)
-- sghmc: Stochastic Gradient Hamiltonian Monte Carlo (MCMC)
-- baoa: Bayesian Adaptive Optimization Algorithm (MCMC)
+Supported SGMCMC samplers:
+- sgld: Stochastic Gradient Langevin Dynamics
+- sghmc: Stochastic Gradient Hamiltonian Monte Carlo
+- baoa: Bayesian Adaptive Optimization Algorithm
 
 Examples:
-    python scripts/bayesian_training_script.py --sampler vi --epochs 15
     python scripts/bayesian_training_script.py --sampler sgld --eval
     python scripts/bayesian_training_script.py --sampler sghmc --eval
+    python scripts/bayesian_training_script.py --sampler baoa --eval
 """
 import sys
 import argparse
@@ -39,18 +36,12 @@ for p in paths_to_add:
 # Module imports (now safe)
 from src.nanogpt_utils import load_model, load_tokenizer
 from src.bayesian_utils import create_training_batches, run_bayesian_pipeline
-from config import CONFIG, MODEL_PATH, META_PATH, DATA_DIR, CONFIG_EKF, CONFIG_SGLD, CONFIG_SGHMC, CONFIG_BAOA
+from config import CONFIG, MODEL_PATH, META_PATH, DATA_DIR, CONFIG_SGLD, CONFIG_SGHMC, CONFIG_BAOA
 from src.evaluation.bayesian_evaluator import BayesianNanoGPTEvaluator, evaluate_bayesian_splits
 
 """Bayesian NanoGPT training script with optional external evaluation.
 
 Usage examples:
-    # Variational Inference
-    python scripts/bayesian_training_script.py --sampler vi --epochs 15 --eval --eval-splits val train
-
-    # Extended Kalman Filter
-    python scripts/bayesian_training_script.py --sampler ekf --epochs 15 --eval
-
     # SGMCMC Samplers (with automatic warmup and sampling schedule)
     python scripts/bayesian_training_script.py --sampler sgld --eval
     python scripts/bayesian_training_script.py --sampler sghmc --eval
@@ -60,7 +51,6 @@ Usage examples:
     #   - Run 200 warmup steps
     #   - Run 1000 sampling steps
     #   - Collect every 10th sample (~100 samples total)
-    #   - Stop after completing the schedule (ignoring --epochs if provided)
 """
 
 
@@ -104,9 +94,9 @@ def parse_args():
     parser.add_argument(
         '--sampler',
         type=str,
-        default='vi',
-        choices=['vi', 'ekf', 'laplace', 'sgld', 'sghmc', 'baoa'],
-        help='Bayesian inference method to use'
+        default='sgld',
+        choices=['sgld', 'sghmc', 'baoa'],
+        help='SGMCMC sampler to use'
     )
     
     parser.add_argument(
@@ -246,20 +236,14 @@ def main():
     logger.info(f"Random seed set to: {args.seed}")
     
     # Select appropriate config based on sampler type
-    if args.sampler == 'vi':
-        config = CONFIG.copy()
-    elif args.sampler == 'ekf':
-        config = CONFIG_EKF.copy()
-    elif args.sampler == 'sgld':
+    if args.sampler == 'sgld':
         config = CONFIG_SGLD.copy()
     elif args.sampler == 'sghmc':
         config = CONFIG_SGHMC.copy()
     elif args.sampler == 'baoa':
         config = CONFIG_BAOA.copy()
-    elif args.sampler == 'laplace':
-        config = CONFIG.copy()  # Use base config for Laplace
     else:
-        raise ValueError(f"Unknown sampler type: {args.sampler}")
+        raise ValueError(f"Unknown sampler type: {args.sampler}. Must be one of: 'sgld', 'sghmc', 'baoa'")
 
     if args.epochs:
         config['num_epochs'] = args.epochs

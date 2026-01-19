@@ -3,8 +3,6 @@ Utility functions for Bayesian inference with deterministic model comparison.
 """
 import torch
 import wandb
-import math
-import torchopt
 import datetime
 import numpy as np
 from torch import func
@@ -13,7 +11,9 @@ import posteriors
 import torch.nn.functional as F
 from pathlib import Path
 from torch.optim.lr_scheduler import CosineAnnealingLR
-from config import DEVICE, CONFIG, MODEL_PATH, WANDB_AVAILABLE, CONFIG_EKF, CONFIG_SGLD, CONFIG_SGHMC, CONFIG_BAOA
+from config import DEVICE, CONFIG, MODEL_PATH, WANDB_AVAILABLE, CONFIG_SGLD, CONFIG_SGHMC, CONFIG_BAOA
+# Note: This module supports SGMCMC samplers (SGLD, SGHMC, BAOA)
+# These are step-based methods that collect samples during training
 from src.nanogpt_utils import load_model
 MODEL, checkpoint = load_model(Path(MODEL_PATH), DEVICE) # TODO: pass device
 INITIAL_PARAMS = {k: v.clone().to(DEVICE) for k, v in MODEL.named_parameters()}
@@ -57,7 +57,7 @@ def single_batch_loss(params, batch):
 
 def log_posterior_fn(params, batch):    
     """
-    Compute log posterior for VI with character-based model.
+    Compute log posterior with character-based model.
     
     Each training sample is a sequence that predicts 1 next character.
     """
@@ -138,14 +138,14 @@ def evaluate_deterministic_model(model, test_batch):
 class BayesianSamplerPipeline:
     """Unified pipeline for different Bayesian inference methods with W&B tracking"""
 
-    AVAILABLE_SAMPLERS = ['vi', 'ekf', 'laplace', 'sgld', 'sghmc', 'baoa']
-    
+    AVAILABLE_SAMPLERS = ['sgld', 'sghmc', 'baoa']
+
     def __init__(self, sampler_type: str, config: dict, use_wandb: bool = True):
         """
         Initialize the Bayesian sampler pipeline
-        
+
         Args:
-            sampler_type: One of 'vi', 'ekf', 'laplace', 'sgld', 'sghmc', 'baoa'
+            sampler_type: One of 'sgld', 'sghmc', 'baoa'
             config: Configuration dictionary with training parameters
             use_wandb: Whether to use Weights & Biases for tracking
         """
@@ -194,81 +194,12 @@ class BayesianSamplerPipeline:
         print(f"Setting up {self.sampler_type.upper()} sampler")
         print(f"{'='*60}")
 
-        if self.sampler_type == 'vi':
-            return self._setup_vi(log_posterior_fn, params)
-        elif self.sampler_type == 'ekf':
-            return self._setup_ekf(log_posterior_fn, params)
-        elif self.sampler_type == 'laplace':
-            return self._setup_laplace(log_posterior_fn, params)
-        elif self.sampler_type == 'sgld':
+        if self.sampler_type == 'sgld':
             return self._setup_sgld(log_posterior_fn, params)
         elif self.sampler_type == 'sghmc':
             return self._setup_sghmc(log_posterior_fn, params)
         elif self.sampler_type == 'baoa':
             return self._setup_baoa(log_posterior_fn, params)
-    
-    def _setup_vi(self, log_posterior_fn, params):
-        """Setup Variational Inference (Diagonal Gaussian)"""
-        # Create learning rate schedule and calculate total steps
-        num_batches_per_epoch = math.ceil(
-                    self.config['train_samples'] / self.config['batch_size']
-        )
-        total_steps = self.config['num_epochs'] * num_batches_per_epoch        
-        lr_schedule = torchopt.schedule.linear_schedule(
-            init_value=self.config.get('learning_rate', 1e-3),
-            end_value=0.0,
-            transition_steps=total_steps
-        )
-        # Pass the schedule to the optimizer
-        optimizer = torchopt.adam(lr=lr_schedule)
-        # optimizer = torchopt.adam(lr=self.config.get('learning_rate', 1e-3))
-        
-        transform = posteriors.vi.diag.build(
-            log_posterior=log_posterior_fn,
-            optimizer=optimizer,
-            temperature=self.config.get('temperature', 1.0),
-            n_samples=self.config.get('vi_n_samples', 1),
-            init_log_sds=self.config.get('init_log_scale', -10),
-        )
-        
-        state = transform.init(params)
-        
-        print(f"VI configured with:")
-        print(f"- Learning rate: {self.config.get('learning_rate', 1e-3)}")
-        print(f"- Temperature: {self.config.get('temperature', 1.0)}")
-        print(f"- Samples per update: {self.config.get('vi_n_samples', 1)}")
-        
-        return transform, state
-    
-    def _setup_ekf(self, log_likelihood_fn, params):
-        """Setup Extended Kalman Filter"""
-        transform = posteriors.ekf.diag_fisher.build(
-            log_likelihood=log_likelihood_fn,
-            lr=self.config.get('learning_rate', 1e-3)
-        )
-        
-        state = transform.init(params)
-        
-        print(f"EKF configured with:")
-        print(f"- Learning rate: {self.config.get('learning_rate', 1e-3)}")
-        print(f"- Using diagonal Fisher approximation")
-        
-        return transform, state
-    
-    def _setup_laplace(self, log_posterior_fn, params):
-        """Setup Laplace Approximation"""
-        transform = posteriors.laplace.diag_fisher.build(
-            log_posterior=log_posterior_fn
-            # lr=self.config.get('learning_rate', 1e-3)
-        )
-        
-        state = transform.init(params)
-        
-        print(f"✓ Laplace configured with:")
-        print(f"- Learning rate: {self.config.get('learning_rate', 1e-3)}")
-        print(f"- Using diagonal Fisher approximation")
-        
-        return transform, state
     
     def _setup_sgld(self, log_posterior_fn, params):
         """Setup Stochastic Gradient Langevin Dynamics (SGLD)"""
@@ -346,16 +277,9 @@ class BayesianSamplerPipeline:
 
     def run_training(self, transform, state, training_batches,
                      single_batch_loss, log_posterior_fn):
-        """Run Bayesian training with the configured sampler"""
-
-        if self.sampler_type in ['sgld', 'sghmc', 'baoa']:
-            # SGMCMC: Use step-based training (no epochs)
-            return self._run_mcmc_training(transform, state, training_batches,
-                                          single_batch_loss, log_posterior_fn)
-        else:
-            # VI/EKF/Laplace: Use epoch-based training
-            return self._run_epoch_training(transform, state, training_batches,
-                                           single_batch_loss, log_posterior_fn)
+        """Run SGMCMC training with step-based approach"""
+        return self._run_mcmc_training(transform, state, training_batches,
+                                      single_batch_loss, log_posterior_fn)
 
     def _run_mcmc_training(self, transform, state, training_batches,
                            single_batch_loss, log_posterior_fn):
@@ -461,154 +385,18 @@ class BayesianSamplerPipeline:
 
         return state, self.metrics
 
-    def _run_epoch_training(self, transform, state, training_batches,
-                            single_batch_loss, log_posterior_fn):
-        """Epoch-based training for VI/EKF/Laplace"""
-        import datetime
-
-        print(f"\n{'='*60}")
-        print(f"Starting Bayesian Training with {self.sampler_type.upper()}")
-        print(f"{'='*60}")
-        print(f"Configuration:")
-        print(f"  - Epochs: {self.config['num_epochs']}")
-        print(f"  - Batches per epoch: {len(training_batches)}")
-        print(f"  - Total iterations: {self.config['num_epochs'] * len(training_batches)}")
-        print(f"{'='*60}\n")
-
-        start_time = datetime.datetime.now()
-        global_step = 0
-        
-        for epoch in range(self.config['num_epochs']):
-            epoch_start = datetime.datetime.now()
-            epoch_losses = []
-            epoch_log_posts = []
-            
-            print(f"Epoch {epoch + 1}/{self.config['num_epochs']}")
-            print("-" * 60)
-            
-            for batch_idx, batch in enumerate(training_batches):
-                try:
-                    print(f"  Processing batch {batch_idx + 1}/{len(training_batches)}...")
-                    state, aux = transform.update(state, batch)
-                    print(f"  Batch processed successfully.")
-
-                    if self.sampler_type in ['vi']:
-                        # For VI and EKF, state contains log_sd_diag (std in log space)
-                        max_log_scale = self.config.get('max_log_scale', -8)
-                        # clamp log_scale (std is saved in log_scale in VI: log_scale = log(σ)) to prevent variance explosion
-                        with torch.no_grad():
-                            for k in state.log_sd_diag:
-                                state.log_sd_diag[k].clamp_(max=max_log_scale)
-                    
-                    # Extract params from state (should be VIDiagState or similar named tuple)
-                    current_params = state.params
-                    
-                    with torch.no_grad():
-                        current_loss = single_batch_loss(current_params, batch)
-                        current_log_post, _ = log_posterior_fn(current_params, batch)
-                        
-                        epoch_losses.append(current_loss.item())
-                        epoch_log_posts.append(current_log_post.item())
-                    
-                    if self.use_wandb:
-                        wandb.log({
-                            'batch_loss': current_loss.item(),
-                            'batch_log_posterior': current_log_post.item(),
-                            'epoch': epoch + 1,
-                            'global_step': global_step
-                        }, step=global_step)
-                    
-                    global_step += 1
-                    
-                    if (batch_idx + 1) % max(1, len(training_batches) // 5) == 0:
-                        recent_loss = np.mean(epoch_losses[-5:])
-                        recent_log_post = np.mean(epoch_log_posts[-5:])
-                        print(f"  [{batch_idx + 1:3d}/{len(training_batches)}] "
-                              f"Loss: {recent_loss:.4f} | "
-                              f"Log Post: {recent_log_post:.4f}")
-                    
-                    # TODO: Clear cache periodically
-                    if batch_idx % 10 == 0: 
-                        gc.collect()
-                        torch.cuda.empty_cache() if torch.cuda.is_available() else None
-                    del batch
-                        
-                
-                except Exception as e:
-                    print(f"  ✗ Error in batch {batch_idx + 1}: {e}")
-                    gc.collect()
-                    continue
-            
-            if epoch_losses:
-                avg_loss = np.mean(epoch_losses)
-                avg_log_post = np.mean(epoch_log_posts)
-                epoch_time = (datetime.datetime.now() - epoch_start).total_seconds()
-                
-                self.metrics['training_losses'].append(avg_loss)
-                self.metrics['log_posterior_values'].append(avg_log_post)
-                self.metrics['epoch_times'].append(epoch_time)
-                
-                sampler_metrics = self._extract_sampler_metrics(state, epoch)
-                if sampler_metrics:
-                    self.metrics['sampler_specific_metrics'].append(sampler_metrics)
-                
-                if self.use_wandb:
-                    log_dict = {
-                        'epoch_loss': avg_loss,
-                        'epoch_log_posterior': avg_log_post,
-                        'epoch_time': epoch_time,
-                        'epoch': epoch + 1
-                    }
-                    if sampler_metrics:
-                        log_dict.update({f"epoch_{k}": v for k, v in sampler_metrics.items()})
-                    wandb.log(log_dict, step=global_step)
-                
-                print(f"  ✓ Epoch Complete:")
-                print(f"    Loss: {avg_loss:.4f} | Log Post: {avg_log_post:.4f} | "
-                      f"Time: {epoch_time:.2f}s")
-            else:
-                print(f"  ✗ Epoch failed - no successful batches")
-                break
-
-            print()
-        
-        total_time = (datetime.datetime.now() - start_time).total_seconds()
-        
-        print(f"{'='*60}")
-        print(f"Training Complete!")
-        if self.metrics['training_losses']:
-            print(f"  Final Loss: {self.metrics['training_losses'][-1]:.4f}")
-            print(f"  Final Log Posterior: {self.metrics['log_posterior_values'][-1]:.4f}")
-        print(f"  Total Time: {total_time:.2f}s")
-        print(f"{'='*60}\n")
-        
-        if self.use_wandb and self.metrics['training_losses']:
-            wandb.summary['final_loss'] = self.metrics['training_losses'][-1]
-            wandb.summary['final_log_posterior'] = self.metrics['log_posterior_values'][-1]
-            wandb.summary['total_training_time'] = total_time
-
-        return state, self.metrics
-    
     def _extract_sampler_metrics(self, state, epoch):
         """Extract sampler-specific metrics from state"""
         metrics = {'epoch': epoch}
-        
-        if self.sampler_type in ['vi', 'ekf', 'laplace']:
-            if hasattr(state, 'log_sd_diag'):
-                avg_std = torch.mean(torch.stack([
-                    torch.exp(v).mean() for v in state.log_sd_diag.values()
+
+        if hasattr(state, 'momentum') or hasattr(state, 'momenta'):
+            momentum_dict = getattr(state, 'momentum', None) or getattr(state, 'momenta', None)
+            if momentum_dict:
+                avg_momentum = torch.mean(torch.stack([
+                    torch.abs(v).mean() for v in momentum_dict.values()
                 ])).item()
-                metrics['avg_parameter_std'] = avg_std
-        
-        if self.sampler_type in ['sgld', 'sghmc', 'baoa']:
-            if hasattr(state, 'momentum') or hasattr(state, 'momenta'):
-                momentum_dict = getattr(state, 'momentum', None) or getattr(state, 'momenta', None)
-                if momentum_dict:
-                    avg_momentum = torch.mean(torch.stack([
-                        torch.abs(v).mean() for v in momentum_dict.values()
-                    ])).item()
-                    metrics['avg_momentum'] = avg_momentum
-        
+                metrics['avg_momentum'] = avg_momentum
+
         return metrics
     
     def evaluate_predictions(self, state, model, test_batch, num_samples=5):
@@ -632,70 +420,18 @@ class BayesianSamplerPipeline:
         x_test, y_test = test_batch
         results = {}
 
-        # State is VIDiagState or similar named tuple with .params attribute
         current_params = state.params
 
-        # For MCMC samplers, only compute uncertainty metrics
-        is_mcmc = self.sampler_type in ['sgld', 'sghmc', 'baoa']
-
-        if not is_mcmc:
-            # 0. Deterministic model evaluation
-            print("\n0. Deterministic Model (Original):")
-            deterministic_results = evaluate_deterministic_model(model, test_batch)
-            results['deterministic'] = deterministic_results
-
-            print(f"  Loss: {deterministic_results['loss']:.4f}")
-            print(f"  Perplexity: {deterministic_results['perplexity']:.4f}")
-
-            # 1. Posterior mean prediction
-            print("\n1. Bayesian Posterior Mean Prediction:")
-            with torch.no_grad():
-                logits, _ = func.functional_call(model, current_params, (x_test,))
-                loss = F.cross_entropy(
-                    logits.view(-1, logits.size(-1)),
-                    y_test.view(-1)
-                )
-                perplexity = torch.exp(loss)
-
-                # Calculate improvement
-                loss_improvement = deterministic_results['loss'] - loss.item()
-                better_than_deterministic = loss_improvement > 0
-
-                results['posterior_mean'] = {
-                    'loss': loss.item(),
-                    'perplexity': perplexity.item(),
-                    'improvement_over_deterministic': loss_improvement,
-                    'better_than_deterministic': better_than_deterministic
-                }
-
-                print(f"  Loss: {loss.item():.4f}")
-                print(f"  Perplexity: {perplexity.item():.4f}")
-                print(f"  Improvement over deterministic: {loss_improvement:+.4f}")
-                print(f"  {'✓ Better' if better_than_deterministic else '✗ Worse'} than deterministic")
-
-        # 2. Multiple posterior samples
-        print(f"\n{'Predictive Uncertainty' if is_mcmc else '2. Posterior Sampling'} ({num_samples} samples):")
+        # Multiple posterior samples
+        print(f"\nPredictive Uncertainty ({num_samples} samples):")
         sample_losses = []
         posterior_samples = []
-        
-        if self.sampler_type in ['sgld', 'sghmc', 'baoa']:
-            if len(self.collected_samples) > 0:
-                # Use last N samples from training
-                samples_to_use = self.collected_samples[-num_samples:]
 
-                for sample_params in samples_to_use:
-                    with torch.no_grad():
-                        sample_logits, _ = func.functional_call(model, sample_params, (x_test,))
-                        sample_loss = F.cross_entropy(
-                            sample_logits.view(-1, sample_logits.size(-1)),
-                            y_test.view(-1)
-                        )
-                        sample_losses.append(sample_loss.item())
-                        posterior_samples.append(sample_logits)
-            else:
-                print(f"No {self.sampler_type.upper()} samples collected, using final params only")
-                # Fallback to just using final params
-                sample_params = state.params
+        if len(self.collected_samples) > 0:
+            # Use last N samples from training
+            samples_to_use = self.collected_samples[-num_samples:]
+
+            for sample_params in samples_to_use:
                 with torch.no_grad():
                     sample_logits, _ = func.functional_call(model, sample_params, (x_test,))
                     sample_loss = F.cross_entropy(
@@ -704,27 +440,21 @@ class BayesianSamplerPipeline:
                     )
                     sample_losses.append(sample_loss.item())
                     posterior_samples.append(sample_logits)
-        
         else:
-            for i in range(num_samples):
-                if self.sampler_type == 'vi':
-                    sample_params = posteriors.vi.diag.sample(state)
-                elif self.sampler_type == 'ekf':
-                    sample_params = posteriors.ekf.diag_fisher.sample(state)
-                elif self.sampler_type == 'laplace':
-                    sample_params = posteriors.laplace.diag_fisher.sample(state)
-            
-                with torch.no_grad():
-                    sample_logits, _ = func.functional_call(model, sample_params, (x_test,))
-                    sample_loss = F.cross_entropy(
-                        sample_logits.view(-1, sample_logits.size(-1)),
-                        y_test.view(-1)
-                    )
-                    sample_losses.append(sample_loss.item())
-                    posterior_samples.append(sample_logits)
-        
-        # Only save posterior_sampling metrics for non-MCMC samplers
-        if not is_mcmc:
+            print(f"No {self.sampler_type.upper()} samples collected, using final params only")
+            # Fallback to just using final params
+            sample_params = state.params
+            with torch.no_grad():
+                sample_logits, _ = func.functional_call(model, sample_params, (x_test,))
+                sample_loss = F.cross_entropy(
+                    sample_logits.view(-1, sample_logits.size(-1)),
+                    y_test.view(-1)
+                )
+                sample_losses.append(sample_loss.item())
+                posterior_samples.append(sample_logits)
+
+        # Save posterior_sampling metrics
+        if sample_losses:
             results['posterior_sampling'] = {
                 'mean_loss': np.mean(sample_losses),
                 'std_loss': np.std(sample_losses),
@@ -735,8 +465,8 @@ class BayesianSamplerPipeline:
             print(f"  Mean Loss: {np.mean(sample_losses):.4f} ± {np.std(sample_losses):.4f}")
             print(f"  Range: [{np.min(sample_losses):.4f}, {np.max(sample_losses):.4f}]")
 
-        # Predictive uncertainty (for all sampler types)
-        print(f"\n{'Calculating Uncertainty:' if is_mcmc else '3. Predictive Uncertainty:'}")
+        # Predictive uncertainty
+        print(f"\nCalculating Uncertainty:")
         stacked_logits = torch.stack(posterior_samples)
         pred_probs = F.softmax(stacked_logits, dim=-1)
         mean_probs = pred_probs.mean(dim=0)
@@ -753,63 +483,16 @@ class BayesianSamplerPipeline:
         print(f"  Average Entropy: {avg_uncertainty:.4f}")
         print(f"  Range: [{pred_entropy.min().item():.4f}, {pred_entropy.max().item():.4f}]")
 
-        # 4. Parameter uncertainty (only for VI/EKF/Laplace, not MCMC)
-        if not is_mcmc and (hasattr(state, 'log_scale') or hasattr(state, 'log_sd_diag')):
-            print(f"\n4. Parameter Uncertainty:")
-            total_params = 0
-            total_std = 0
-
-
-            # Handle different naming conventions
-            log_scale_attr = 'log_scale' if hasattr(state, 'log_scale') else 'log_sd_diag'
-            log_scale_dict = getattr(state, log_scale_attr)
-
-            for name in state.params:
-                param_std = torch.exp(log_scale_dict[name]).mean().item()
-                param_count = state.params[name].numel()
-
-                total_params += param_count
-                total_std += param_std * param_count
-
-            if total_params > 0:
-                avg_param_std = total_std / total_params
-                results['parameter_uncertainty'] = {
-                    'avg_parameter_std': avg_param_std
-                }
-                print(f"  Average parameter std: {avg_param_std:.6f}")
-        
         # Log evaluation results to W&B
         if self.use_wandb:
-            if is_mcmc:
-                # For MCMC, only log uncertainty metrics
-                wandb.log({
-                    'eval/avg_predictive_entropy': results['uncertainty']['avg_predictive_entropy'],
-                    'eval/max_predictive_entropy': results['uncertainty']['max_predictive_entropy'],
-                    'eval/min_predictive_entropy': results['uncertainty']['min_predictive_entropy']
-                })
-                wandb.summary.update({
-                    'eval_uncertainty': results['uncertainty']['avg_predictive_entropy']
-                })
-            else:
-                # For VI/EKF, log all metrics
-                wandb.log({
-                    'eval/deterministic_loss': results['deterministic']['loss'],
-                    'eval/deterministic_perplexity': results['deterministic']['perplexity'],
-                    'eval/posterior_mean_loss': results['posterior_mean']['loss'],
-                    'eval/posterior_mean_perplexity': results['posterior_mean']['perplexity'],
-                    'eval/improvement_over_deterministic': results['posterior_mean']['improvement_over_deterministic'],
-                    'eval/sampling_mean_loss': results['posterior_sampling']['mean_loss'],
-                    'eval/sampling_std_loss': results['posterior_sampling']['std_loss'],
-                    'eval/avg_predictive_entropy': results['uncertainty']['avg_predictive_entropy']
-                })
-
-                wandb.summary.update({
-                    'eval_deterministic_loss': results['deterministic']['loss'],
-                    'eval_bayesian_loss': results['posterior_mean']['loss'],
-                    'eval_improvement': results['posterior_mean']['improvement_over_deterministic'],
-                    'eval_perplexity': results['posterior_mean']['perplexity'],
-                    'eval_uncertainty': results['uncertainty']['avg_predictive_entropy']
-                })
+            wandb.log({
+                'eval/avg_predictive_entropy': results['uncertainty']['avg_predictive_entropy'],
+                'eval/max_predictive_entropy': results['uncertainty']['max_predictive_entropy'],
+                'eval/min_predictive_entropy': results['uncertainty']['min_predictive_entropy']
+            })
+            wandb.summary.update({
+                'eval_uncertainty': results['uncertainty']['avg_predictive_entropy']
+            })
         
         print(f"{'='*60}\n")
         
@@ -860,18 +543,7 @@ class BayesianSamplerPipeline:
             # Only include uncertainty metrics from evaluation
             if evaluation_results and 'uncertainty' in evaluation_results:
                 complete_metrics['uncertainty'] = evaluation_results['uncertainty']
-        else:
-            # For VI/EKF samplers, keep all metrics
-            complete_metrics = {
-                'sampler_type': self.sampler_type,
-                'config': self.config,
-                'training_metrics': self.metrics,
-                'timestamp': datetime.datetime.now().isoformat()
-            }
-            if evaluation_results:
-                complete_metrics['evaluation'] = evaluation_results
-        
-        # State is VIDiagState or similar named tuple with .params attribute
+
         current_params = state.params
         
         # Save model state
@@ -884,13 +556,7 @@ class BayesianSamplerPipeline:
             'complete_metrics': complete_metrics
         }
 
-        # Save log_sd_diag (required for VIDiagState reconstruction)
-        if hasattr(state, 'log_sd_diag'):
-            saved_state['log_sd_diag'] = {k: v.cpu() for k, v in state.log_sd_diag.items()}
-        else:
-            saved_state['log_sd_diag'] = {}  # Empty dict as fallback
-
-        # Save opt_state (required for VIDiagState reconstruction)
+        # Save opt_state if present
         if hasattr(state, 'opt_state'):
             # Handle nested opt_state structure with named tuples
             def move_to_cpu_recursive(obj):
@@ -982,29 +648,16 @@ CONFIGURATION:
         for key, value in metrics['config'].items():
             report += f"  {key}: {value}\n"
 
-        # Training summary differs based on sampler type
-        if self.sampler_type in ['sgld', 'sghmc', 'baoa']:
-            # MCMC sampler metrics
-            training_metrics = metrics['training_metrics']
-            report += f"""
+        # Training summary for SGMCMC samplers
+        training_metrics = metrics['training_metrics']
+        report += f"""
 TRAINING SUMMARY:
 {'-'*70}
 Total Steps: {training_metrics.get('total_steps', 'N/A')}
 Samples Collected: {training_metrics.get('samples_collected', 'N/A')}
 """
-            if 'avg_momentum' in training_metrics:
-                report += f"Avg Momentum: {training_metrics['avg_momentum']:.6f}\n"
-        else:
-            # VI/EKF sampler metrics
-            report += f"""
-TRAINING SUMMARY:
-{'-'*70}
-Total Epochs: {len(metrics['training_metrics']['training_losses'])}
-Final Training Loss: {metrics['training_metrics']['training_losses'][-1]:.4f}
-Final Log Posterior: {metrics['training_metrics']['log_posterior_values'][-1]:.4f}
-Total Training Time: {sum(metrics['training_metrics']['epoch_times']):.2f}s
-Avg Time per Epoch: {np.mean(metrics['training_metrics']['epoch_times']):.2f}s
-"""
+        if 'avg_momentum' in training_metrics:
+            report += f"Avg Momentum: {training_metrics['avg_momentum']:.6f}\n"
         
         if 'evaluation' in metrics:
             eval_data = metrics['evaluation']
@@ -1061,13 +714,13 @@ Parameter Uncertainty:
             f.write(report)
 
 
-def run_bayesian_pipeline(training_batches, sampler_type='vi', config=None, use_wandb=True):
+def run_bayesian_pipeline(training_batches, sampler_type='sgld', config=None, use_wandb=True):
     """
-    Complete pipeline with W&B integration and deterministic comparison
+    Complete pipeline with W&B integration
 
     Args:
         training_batches: Training data batches
-        sampler_type: One of 'vi', 'ekf', 'laplace', 'sgld', 'sghmc', 'baoa'
+        sampler_type: One of 'sgld', 'sghmc', 'baoa'
         config: Configuration dictionary (optional, uses defaults if not provided)
         use_wandb: Whether to use Weights & Biases tracking
 
@@ -1075,24 +728,20 @@ def run_bayesian_pipeline(training_batches, sampler_type='vi', config=None, use_
         state: Training state (NamedTuple with params and sampler-specific fields)
         metrics: Dictionary of training metrics
         eval_results: Dictionary of evaluation results
-        collected_samples: List of parameter dictionaries (only for SGMCMC samplers, else None)
+        collected_samples: List of parameter dictionaries
     """
     params = {k: v.clone().to(DEVICE) for k, v in MODEL.named_parameters()}
 
     # Select appropriate config if not provided
     if config is None:
-        if sampler_type == 'vi':
-            config = CONFIG.copy()
-        elif sampler_type == 'ekf':
-            config = CONFIG_EKF.copy()
-        elif sampler_type == 'sgld':
+        if sampler_type == 'sgld':
             config = CONFIG_SGLD.copy()
         elif sampler_type == 'sghmc':
             config = CONFIG_SGHMC.copy()
         elif sampler_type == 'baoa':
             config = CONFIG_BAOA.copy()
         else:
-            raise ValueError(f"Unknown sampler type: {sampler_type}. Must be one of: 'vi', 'ekf', 'laplace', 'sgld', 'sghmc', 'baoa'")
+            raise ValueError(f"Unknown sampler type: {sampler_type}. Must be one of: 'sgld', 'sghmc', 'baoa'")
 
     pipeline = BayesianSamplerPipeline(
         sampler_type=sampler_type,
@@ -1124,17 +773,6 @@ def run_bayesian_pipeline(training_batches, sampler_type='vi', config=None, use_
 
 
 # Usage examples:
-# Variational Inference
-# state_vi, metrics_vi, eval_vi, _ = run_bayesian_pipeline(training_batches, 'vi')
-
-# Extended Kalman Filter
-# state_ekf, metrics_ekf, eval_ekf, _ = run_bayesian_pipeline(training_batches, 'ekf')
-
-# Laplace Approximation
-# state_laplace, metrics_laplace, eval_laplace, _ = run_bayesian_pipeline(training_batches, 'laplace')
-
-# SGMCMC Samplers (with warmup and sampling schedule)
 # state_sgld, metrics_sgld, eval_sgld, samples_sgld = run_bayesian_pipeline(training_batches, 'sgld')
 # state_sghmc, metrics_sghmc, eval_sghmc, samples_sghmc = run_bayesian_pipeline(training_batches, 'sghmc')
 # state_baoa, metrics_baoa, eval_baoa, samples_baoa = run_bayesian_pipeline(training_batches, 'baoa')
-# state_sgmcmc, metrics_sgmcmc, eval_sgmcmc, samples = run_bayesian_pipeline(training_batches, 'sgmcmc')  # deprecated, use 'sghmc' instead

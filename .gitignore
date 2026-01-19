@@ -7,3 +7,5 @@ __pycache__/
 bayesian_nanogpt/
 .env
 *.bin
+.github/
+.logs
