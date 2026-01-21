@@ -35,19 +35,58 @@ This report presents a comprehensive evaluation of Bayesian Neural Networks (BAO
 
 ## Contents
 
-- [1) Executive Summary](#1-executive-summary)
-- [2) Step Size Analysis](#2-step-size-analysis)
-- [3) Model Comparison](#3-model-comparison)
-- [4) Automatic Metrics Analysis](#4-automatic-metrics-analysis)
-- [5) LLM-Judge Analysis](#5-llm-judge-analysis)
-- [6) Decoding Hyperparameter Effects](#6-decoding-hyperparameter-effects)
-- [7) Best Configurations](#7-best-configurations)
-- [8) Recommendations](#8-recommendations)
-- [9) Conclusion](#9-conclusion)
+- [1) Data Summary](#1-data-summary)
+- [2) Executive Summary](#2-executive-summary)
+- [3) Step Size Analysis](#3-step-size-analysis)
+- [4) Model Comparison](#4-model-comparison)
+- [5) Automatic Metrics Analysis](#5-automatic-metrics-analysis)
+- [6) LLM-Judge Analysis](#6-llm-judge-analysis)
+- [7) Decoding Hyperparameter Effects](#7-decoding-hyperparameter-effects)
+- [8) Best Configurations](#8-best-configurations)
+- [9) Recommendations](#9-recommendations)
+- [10) Conclusion](#10-conclusion)
 
 ---
 
-## 1) Executive Summary
+## 1) Data Summary
+
+### Models Evaluated
+
+| Model | Step Size | Run ID | Generations |
+|-------|-----------|--------|-------------|
+| BAOA | 1e-06 | run_20251118-124935 | 106 |
+| BAOA | 5e-06 | run_20251224-145920 | 119 |
+| SGHMC | 5e-06 | run_20251226-113201 | 120 |
+| SGHMC | 1e-05 | run_20251119-120219 | 119 |
+| Baseline | N/A | baseline_model_2k | 110 |
+
+### Evaluation Metrics
+
+**Automatic Metrics:**
+- BLEU: N-gram precision (higher is better)
+- ROUGE-1/2/L: N-gram recall (higher is better)
+- Perplexity: Likelihood-based (lower is better)
+
+**LLM-Judge Metrics (0-10 scale):**
+- Quality: Generated text quality
+- Diversity: Variety in outputs
+- Relevance: Alignment with input prompts
+
+### Generation Configurations
+
+- Temperature: {0.3, 0.8}
+- Top-k: {10, 20, 50}
+- Num-samples: {10, 20, 30}
+
+### Data Locations
+
+- Automatic metrics: `results/evaluation/`
+- LLM-judge (BAOA @ 1e-06, Baseline): `results/llm_results/external_data/`
+- LLM-judge (BAOA @ 5e-06): `checkpoints/samplers/baoa_sampler/run_20251224-145920/eval_results/`
+- LLM-judge (SGHMC): `checkpoints/samplers/sghmc_sampler/*/eval_results/`
+- Figures: `results/figures/`
+
+## 2) Executive Summary
 
 ### Research Question
 Compare BNNs with different samplers (BAOA, SGHMC) and step sizes against a deterministic baseline for text generation quality.
@@ -74,9 +113,9 @@ Compare BNNs with different samplers (BAOA, SGHMC) and step sizes against a dete
 
 ---
 
-## 2) Step Size Analysis
+## 3) Step Size Analysis
 
-### 2.1 Summary: Does Step Size Matter?
+### 3.1 Summary: Does Step Size Matter?
 
 **Yes, significantly for LLM-judge metrics; less so for automatic metrics.**
 
@@ -114,14 +153,14 @@ Comparing step sizes 1e-06 vs 5e-06 for Bayesian samplers:
 | 1e-05 | 4.038 | 5.298 | 6.017 |
 | Delta | **+0.383** | **+0.277** | **+0.633** |
 
-### 2.2 Step Size Recommendations
+### 3.2 Step Size Recommendations
 
 | Sampler | Optimal Step Size | Rationale |
 |---------|-------------------|-----------|
 | **BAOA** | **1e-06** | Best relevance (+10.9% vs 5e-06), competitive quality |
 | **SGHMC** | **5e-06** | All metrics improved vs 1e-05 (+9.5% quality) |
 
-### 2.3 Overfitting Analysis by Step Size
+### 3.3 Overfitting Analysis by Step Size
 
 ![Overfitting by step size and model](figures/overfitting_by_step_model.png)
 
@@ -136,9 +175,9 @@ Train-validation gaps for Bayesian samplers:
 
 ---
 
-## 3) Model Comparison
+## 4) Model Comparison
 
-### 3.1 Automatic Metrics Overview
+### 4.1 Automatic Metrics Overview
 
 Overall averages across all decoding configurations:
 
@@ -150,7 +189,7 @@ Overall averages across all decoding configurations:
 
 **Interpretation:** Model families are close on BLEU/ROUGE (within ~2%). Bayesian models show lower perplexity (BAOA best).
 
-### 3.2 LLM-Judge Overview
+### 4.2 LLM-Judge Overview
 
 Overall averages across all decoding configurations:
 
@@ -164,7 +203,7 @@ Overall averages across all decoding configurations:
 
 **Interpretation:** Only BAOA @ 1e-06 outperforms baseline on all metrics.
 
-### 3.3 Combined Verdict
+### 4.3 Combined Verdict
 
 | Model | Automatic Metrics | LLM-Judge | Overall |
 |-------|-------------------|-----------|---------|
@@ -176,9 +215,9 @@ Overall averages across all decoding configurations:
 
 ---
 
-## 4) Automatic Metrics Analysis
+## 5) Automatic Metrics Analysis
 
-### 4.1 Best Configurations by BLEU (Overall)
+### 5.1 Best Configurations by BLEU (Overall)
 
 | Rank | Model | Temp | Top-k | Samples | BLEU | ROUGE-2 | PPL |
 |------|-------|------|-------|---------|------|---------|-----|
@@ -188,7 +227,7 @@ Overall averages across all decoding configurations:
 | 4 | Baseline | 0.8 | 10 | 30 | 0.2756 | 0.5535 | 127.05 |
 | 5 | SGHMC | 0.8 | 10 | 30 | 0.2714 | 0.5569 | 206.59 |
 
-### 4.2 Temperature Effects
+### 5.2 Temperature Effects
 
 Average deltas when moving from T=0.3 → T=0.8:
 
@@ -200,7 +239,7 @@ Average deltas when moving from T=0.3 → T=0.8:
 
 **Interpretation:** Higher temperature increases BLEU/ROUGE at the cost of much higher perplexity.
 
-### 4.3 Top-k and Num-Samples Interactions
+### 5.3 Top-k and Num-Samples Interactions
 
 **Key Pattern:**
 - **top_k=10 + num_samples=30**: Generally improves BLEU/ROUGE
@@ -210,9 +249,9 @@ Average deltas when moving from T=0.3 → T=0.8:
 
 ---
 
-## 5) LLM-Judge Analysis
+## 6) LLM-Judge Analysis
 
-### 5.1 Best Configurations by Model
+### 6.1 Best Configurations by Model
 
 #### BAOA @ 1e-06 (Best Model)
 
@@ -246,7 +285,7 @@ Average deltas when moving from T=0.3 → T=0.8:
 | 2 | temp_0.3_topk_10_samples_10 | 4.538 | 5.577 | **7.154** |
 | 3 | temp_0.8_topk_20_samples_10 | 4.500 | 5.500 | 7.071 |
 
-### 5.2 Quality vs Relevance Trade-off
+### 6.2 Quality vs Relevance Trade-off
 
 | Model | Best Quality Config | Quality | Relevance | Trade-off |
 |-------|---------------------|---------|-----------|-----------|
@@ -259,9 +298,9 @@ Average deltas when moving from T=0.3 → T=0.8:
 
 ---
 
-## 6) Decoding Hyperparameter Effects
+## 7) Decoding Hyperparameter Effects
 
-### 6.1 Temperature
+### 7.1 Temperature
 
 ![Temperature effects on metrics](figures/metrics_vs_temperature.png)
 
@@ -275,7 +314,7 @@ Average deltas when moving from T=0.3 → T=0.8:
 **Automatic metrics:** T=0.8 improves BLEU/ROUGE but increases perplexity substantially.
 **LLM-judge:** Model-dependent; BAOA prefers 0.3, SGHMC prefers 0.8.
 
-### 6.2 Top-k
+### 7.2 Top-k
 
 ![Top-k effects on metrics](figures/metrics_vs_topk.png)
 
@@ -288,7 +327,7 @@ Average deltas when moving from T=0.3 → T=0.8:
 
 **Key pattern:** When num_samples=10, top_k=50 usually improves BLEU/ROUGE. When num_samples=30, top_k=50 usually hurts.
 
-### 6.3 Num-Samples
+### 7.3 Num-Samples
 
 ![Num-samples effects on metrics](figures/metrics_vs_num_samples.png)
 
@@ -301,13 +340,13 @@ Average deltas when moving from T=0.3 → T=0.8:
 
 **Key pattern:** At top_k=10, increasing samples to 30 generally improves BLEU/ROUGE. At top_k=50, it generally hurts.
 
-### 6.4 Model Comparison
+### 7.4 Model Comparison
 
 ![Model comparison overall](figures/model_comparison_overall.png)
 
 ![Train-val difference](figures/model_comparison_train_val_difference.png)
 
-### 6.5 Interaction Summary
+### 7.5 Interaction Summary
 
 | Setting | Automatic Metrics | LLM-Judge | Recommendation |
 |---------|-------------------|-----------|----------------|
@@ -317,11 +356,11 @@ Average deltas when moving from T=0.3 → T=0.8:
 
 ---
 
-## 7) Best Configurations
+## 8) Best Configurations
 
-### 7.1 Overall Best (All Metrics)
+### 8.1 Overall Best (All Metrics)
 
-**Model:** BAOA @ LR=1e-06
+**Model:** BAOA @ step_size=1e-06
 **Config:** temp=0.3, top_k=10, samples=10
 
 | Metric Type | Metric | Score | vs Baseline |
@@ -331,7 +370,7 @@ Average deltas when moving from T=0.3 → T=0.8:
 | LLM-Judge | Relevance | 7.357 | +2.8% |
 | Automatic | Perplexity | Low | Better |
 
-### 7.2 Best for Automatic Metrics (BLEU/ROUGE)
+### 8.2 Best for Automatic Metrics (BLEU/ROUGE)
 
 **Model:** Baseline
 **Config:** temp=0.8, top_k=50, samples=10
@@ -345,9 +384,9 @@ Average deltas when moving from T=0.3 → T=0.8:
 **Alternative (BNN):** BAOA @ 5e-06, temp=0.8, top_k=10, samples=30
 - BLEU: 0.2793, ROUGE-2: 0.5596, PPL: 178.99
 
-### 7.3 Best for Diversity
+### 8.3 Best for Diversity
 
-**Model:** BAOA @ LR=5e-06
+**Model:** BAOA @ step_size=5e-06
 **Config:** temp=0.3, top_k=20, samples=20
 
 | Metric | Score |
@@ -356,7 +395,7 @@ Average deltas when moving from T=0.3 → T=0.8:
 | Diversity | 5.933 |
 | Relevance | 6.667 |
 
-### 7.4 Configuration Quick Reference
+### 8.4 Configuration Quick Reference
 
 | Priority | Model | Step Size | Temp | Top-k | Samples |
 |----------|-------|-----------|------|-------|---------|
@@ -367,9 +406,9 @@ Average deltas when moving from T=0.3 → T=0.8:
 
 ---
 
-## 8) Recommendations
+## 9) Recommendations
 
-### 8.1 Model Selection
+### 9.1 Model Selection
 
 | Use Case | Recommended Model | Config |
 |----------|-------------------|--------|
@@ -378,14 +417,14 @@ Average deltas when moving from T=0.3 → T=0.8:
 | **Maximize diversity** | BAOA @ 5e-06 | temp=0.3, top_k=20, samples=20 |
 | **Uncertainty quantification** | BAOA @ 1e-06 | Any config |
 
-### 8.2 Step Size Guidelines
+### 9.2 Step Size Guidelines
 
 | Sampler | Recommended | Avoid | Reason |
 |---------|-------------|-------|--------|
 | **BAOA** | 1e-06 | - | Best relevance, good quality |
 | **SGHMC** | 5e-06 | 1e-05 | 1e-05 underperforms baseline |
 
-### 8.3 Decoding Guidelines
+### 9.3 Decoding Guidelines
 
 **For BAOA @ 1e-06:**
 - Use conservative settings (temp=0.3, top_k=10)
@@ -399,7 +438,7 @@ Average deltas when moving from T=0.3 → T=0.8:
 - Use conservative temperature (0.3) for relevance
 - Higher samples (20) helps with ensembling
 
-### 8.4 Avoid
+### 9.4 Avoid
 
 | Configuration | Issue |
 |---------------|-------|
@@ -409,9 +448,9 @@ Average deltas when moving from T=0.3 → T=0.8:
 
 ---
 
-## 9) Conclusion
+## 10) Conclusion
 
-### 9.1 Answer to Research Question
+### 10.1 Answer to Research Question
 
 **Q: Do BNNs with different samplers outperform the deterministic baseline?**
 
@@ -422,7 +461,7 @@ Average deltas when moving from T=0.3 → T=0.8:
 | **BAOA** | **Outperforms** | Step size 1e-06, conservative decoding |
 | **SGHMC** | Mixed | Step size 5e-06, exploratory decoding |
 
-### 9.2 Scientific Contributions
+### 10.2 Scientific Contributions
 
 1. **Bayesian neural networks CAN outperform deterministic models** for text generation
 2. **Sampler selection is critical:** BAOA >> SGHMC in this setting
@@ -430,56 +469,20 @@ Average deltas when moving from T=0.3 → T=0.8:
 4. **Decoding configs interact with sampler type:** No universal optimal setting
 5. **LLM-judge and automatic metrics can disagree:** LLM-judge better captures relevance
 
-### 9.3 Practical Takeaways
+### 10.3 Practical Takeaways
 
 | Takeaway | Details |
 |----------|---------|
-| **Use BAOA with LR=1e-06** | Best quality and relevance |
+| **Use BAOA with step_size=1e-06** | Best quality and relevance |
 | **Use conservative decoding for BAOA** | temp=0.3, top_k=10, samples=10 |
 | **Bayesian provides both performance AND uncertainty** | Additional benefit over baseline |
 | **Avoid SGHMC @ 1e-05** | No advantage over baseline |
 | **Automatic metrics are not sufficient** | LLM-judge reveals relevance issues |
 
-### 9.4 One-Line Summary
+### 10.4 One-Line Summary
 
-**BAOA @ LR=1e-06 with conservative decoding (temp=0.3, top_k=10, samples=10) achieves the best text generation quality, outperforming the deterministic baseline on all LLM-judge metrics while providing calibrated uncertainty estimates.**
+**BAOA @ step_size=1e-06 with conservative decoding (temp=0.3, top_k=10, samples=10) achieves the best text generation quality, outperforming the deterministic baseline on all LLM-judge metrics while providing calibrated uncertainty estimates.**
 
 ---
 
-## Appendix: Data Summary
 
-### Models Evaluated
-
-| Model | Step Size | Run ID | Generations |
-|-------|-----------|--------|-------------|
-| BAOA | 1e-06 | run_20251118-124935 | 106 |
-| BAOA | 5e-06 | run_20251224-145920 | 119 |
-| SGHMC | 5e-06 | run_20251226-113201 | 120 |
-| SGHMC | 1e-05 | run_20251119-120219 | 119 |
-| Baseline | N/A | baseline_model_2k | 110 |
-
-### Evaluation Metrics
-
-**Automatic Metrics:**
-- BLEU: N-gram precision (higher is better)
-- ROUGE-1/2/L: N-gram recall (higher is better)
-- Perplexity: Likelihood-based (lower is better)
-
-**LLM-Judge Metrics (0-10 scale):**
-- Quality: Generated text quality
-- Diversity: Variety in outputs
-- Relevance: Alignment with input prompts
-
-### Generation Configurations
-
-- Temperature: {0.3, 0.8}
-- Top-k: {10, 20, 50}
-- Num-samples: {10, 20, 30}
-
-### Data Locations
-
-- Automatic metrics: `results/evaluation/`
-- LLM-judge (BAOA @ 1e-06, Baseline): `results/llm_results/external_data/`
-- LLM-judge (BAOA @ 5e-06): `checkpoints/samplers/baoa_sampler/run_20251224-145920/eval_results/`
-- LLM-judge (SGHMC): `checkpoints/samplers/sghmc_sampler/*/eval_results/`
-- Figures: `results/figures/`
