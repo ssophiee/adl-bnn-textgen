@@ -1,26 +1,52 @@
 # Bayesian Neural Network Text Generation
 
-This project implements Bayesian inference methods for text generation using a NanoGPT-based character-level language model trained on Shakespeare text.
+Bayesian inference methods for text generation using a NanoGPT-based character-level language model trained on Shakespeare text. This project compares SGMCMC samplers (BAOA, SGHMC, SGLD) against a deterministic baseline to evaluate whether Bayesian approaches can improve text generation quality while providing uncertainty estimates.
 
-## Overview
+**Key Finding:** BAOA achieves the best perplexity (−16% vs baseline) and outperforms the deterministic baseline on all LLM-judge metrics (+2.8% quality, +2.2% diversity, +1.4% relevance).
 
-The project supports multiple Bayesian inference samplers:
-- **EKF** (Extended Kalman Filter) - Diagonal Fisher approximation
-- **SGLD** (Stochastic Gradient Langevin Dynamics) - MCMC sampler
-- **SGHMC** (Stochastic Gradient Hamiltonian Monte Carlo) - MCMC sampler with momentum
-- **BAOA** (Bayesian Adaptive Optimization Algorithm) - MCMC sampler with adaptive momentum
+## Repository Structure
+
+```
+├── src/                           # Core implementation
+│   ├── bayesian_utils.py          # SGMCMC samplers (SGLD, SGHMC, BAOA)
+│   ├── generation_utils.py        # Text generation utilities
+│   └── nanogpt_utils.py           # Model/tokenizer loading
+│
+├── scripts/
+│   └── bayesian_training_script.py  # Main training entry point
+│
+├── baselines/nanogpt/
+│   └── model.py                   # NanoGPT architecture
+│
+├── checkpoints/
+│   ├── baseline/models/           # Deterministic baseline model
+│   └── samplers/                   # Trained Bayesian models
+│       ├── sghmc_sampler/
+│       └── baoa_sampler/
+│
+├── results/
+│   ├── final_report.md            # Evaluation report with findings
+│   ├── figures/                   # Visualizations
+│   └── scripts/                   # Evaluation utilities
+│       ├── bayesian_evaluator.py  # BLEU/ROUGE/Perplexity
+│       └── llm_evaluation.py      # LLM-judge evaluation
+│
+├── notebooks/                     # Training and generation notebooks
+├── config.py                      # Hyperparameter configurations
+└── requirements.txt
+```
 
 ## Setup
 
-### 1. Install Dependencies
+### Install Dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 2. Configure Environment
+### Configure Environment
 
-Create a `.env` file in the project root:
+Create a `.env` file:
 
 ```bash
 BASE_DIR=/path/to/your/project
@@ -31,11 +57,11 @@ DEVICE="cuda"  # or "cpu"
 WANDB_AVAILABLE="true"  # or "false"
 ```
 
-### 3. Data Source
+### Data
 
 Shakespeare data: [TinyShakespeare](https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt)
 
-## Training Bayesian Models
+## Training
 
 ### Basic Usage
 
@@ -43,11 +69,9 @@ Shakespeare data: [TinyShakespeare](https://raw.githubusercontent.com/karpathy/c
 python scripts/bayesian_training_script.py --sampler <SAMPLER_NAME>
 ```
 
-Where `<SAMPLER_NAME>` is one of: `ekf`, `sgld`, `sghmc`, `baoa`
+Where `<SAMPLER_NAME>` is one of: `sgld`, `sghmc`, `baoa`
 
 ### Training with Evaluation
-
-To train a model and run automatic evaluation:
 
 ```bash
 python scripts/bayesian_training_script.py --sampler baoa --eval
@@ -57,213 +81,75 @@ python scripts/bayesian_training_script.py --sampler baoa --eval
 
 ```bash
 python scripts/bayesian_training_script.py \
-  --sampler sghmc \
-  --learning-rate 2e-5 \
-  --epochs 15 \
+  --sampler baoa \
+  --learning-rate 1e-6 \
   --batch-size 16 \
   --train-samples 10000 \
-  --eval \
-  --eval-splits val train \
-  --eval-num-posterior-samples 10 \
-  --eval-max-samples 200 \
-  --eval-num-text-samples 20
+  --eval
 ```
 
-**Key Parameters:**
-- `--sampler`: Bayesian inference method (`ekf`, `sgld`, `sghmc`, `baoa`)
-- `--learning-rate`: Step size for the sampler (critical for MCMC methods)
-- `--epochs`: Number of training epochs (ignored for MCMC samplers)
-- `--batch-size`: Training batch size
-- `--train-samples`: Number of training samples to use
+Key parameters:
+- `--sampler`: Bayesian inference method (`sgld`, `sghmc`, `baoa`)
+- `--learning-rate`: Step size (critical for MCMC performance)
 - `--eval`: Enable post-training evaluation
 - `--no-wandb`: Disable Weights & Biases logging
 
-### Running in Background (tmux)
-
-For long training runs, use tmux:
-
-```bash
-# Start a new tmux session
-tmux new -s bayesian_training
-
-# Inside tmux, run training
-python scripts/bayesian_training_script.py --sampler sghmc --eval
-
-# Detach from tmux: Ctrl+B, then D
-# Reattach later: tmux attach -t bayesian_training
-# Kill session: tmux kill-session -t bayesian_training
-```
-
-## Evaluation
-
-The project supports two types of evaluation:
-
-### 1. Automatic Bayesian Evaluation (Internal)
-
-Runs automatically during training when `--eval` flag is used. Computes:
-- **Perplexity**: Model uncertainty on held-out data
-- **BLEU Score**: N-gram overlap with reference text
-- **ROUGE Score**: Recall-oriented text similarity
-- **Predictive Entropy**: Uncertainty quantification
-
-Results are saved to:
-```
-src/evaluation/llm_results/internal_data/*.json
-```
-
-### 2. LLM-Based Quality Evaluation (External)
-
-Generates text samples and evaluates them using an LLM judge for:
-- **Quality**: Grammatical correctness and coherence
-- **Diversity**: Vocabulary and stylistic variety
-- **Relevance**: Adherence to Shakespeare style
-
-To run LLM evaluation, first train a model, then use the generated samples.
-
-**Aggregated results location:**
-```
-src/evaluation/llm_results/external_data/generation_results_aggregated.json
-```
-
-This file contains quality scores across different generation configurations (temperature, top-k sampling, etc.)
-
 ## Configuration
 
-### Sampler Hyperparameters
+Sampler hyperparameters in [config.py](config.py):
 
-Edit [config.py](config.py) to adjust sampler-specific settings:
-
-**SGHMC Configuration:**
 ```python
-CONFIG_SGHMC = {
-    'learning_rate': 1e-5,      # Step size
-    'sghmc_alpha': 0.1,         # Friction coefficient
-    'sghmc_beta': 0.0,          # Noise estimate
-    'sghmc_sigma': 1.0,         # Prior std for momenta
-    'temperature': 1.0,         # Posterior tempering
+CONFIG_BAOA = {
+    'learning_rate': 1e-6,      # Step size
+    'baoa_alpha': 0.01,         # Momentum decay
     'warmup_steps': 200,        # Burn-in period
     'sampling_steps': 1000,     # Sampling iterations
     'thinning': 10,             # Collect every Nth sample
 }
 ```
 
-**BAOA Configuration:**
-```python
-CONFIG_BAOA = {
-    'learning_rate': 1e-6,      # Step size (smaller = more stable)
-    'baoa_alpha': 0.01,         # Momentum decay
-    'baoa_sigma': 1.0,          # Prior std for momenta
-    'temperature': 1.0,
-    'warmup_steps': 200,
-    'sampling_steps': 1000,
-    'thinning': 10,
-}
-```
-
-### Tuning Step Size (Learning Rate)
-
-The step size is critical for MCMC sampler performance. To experiment:
-
-**Option 1: Command line override**
-```bash
-python scripts/bayesian_training_script.py --sampler sghmc --learning-rate 2e-5 --eval
-```
-
-**Option 2: Edit config.py**
-```python
-CONFIG_SGHMC = {
-    'learning_rate': 2e-5,  # Change this value
-    ...
-}
-```
-
-## Results Directory Structure
-
-```
-checkpoints/
-├── baseline/
-│   └── models/
-│       ├── baseline_model_2k.pt      # Deterministic model
-│       └── meta.pkl                   # Tokenizer metadata
-└── samplers/
-    ├── sghmc_sampler/
-    │   └── run_<timestamp>/
-    │       ├── sghmc_model.pt         # Trained model + samples
-    │       ├── sghmc_metrics.json     # Training metrics
-    │       ├── sghmc_summary.txt      # Human-readable summary
-    │       └── bayesian_eval_*.json   # Evaluation results
-    ├── baoa_sampler/
-    │   └── run_<timestamp>/
-    │       └── ...
-    └── vi_sampler/
-        └── run_<timestamp>/
-            └── ...
-
-src/evaluation/llm_results/
-├── external_data/
-│   └── generation_results_aggregated.json  # LLM quality scores
-└── internal_data/
-    └── *.json                              # Internal evaluation data
-```
-
-## Example Workflow
-
-### 1. Train with Different Step Sizes
-
-```bash
-python scripts/bayesian_training_script.py --sampler baoa --learning-rate 1e-5 --eval
-```
-
-### 2. Monitor Results
-
-Check the generated files:
-```bash
-# View training summary
-cat checkpoints/samplers/baoa_sampler/run_<timestamp>/baoa_summary.txt
-
-# View Bayesian metrics
-cat checkpoints/samplers/baoa_sampler/bayesian_eval_<timestamp>.json
-
-# Compare LLM quality scores
-cat src/evaluation/llm_results/external_data/generation_results_aggregated.json
-```
-
 ## Results
 
-### Key Findings
+See [results/final_report.md](results/final_report.md) for the complete evaluation.
 
-**Best Model:** BAOA @ LR=1e-06 outperforms deterministic baseline on all metrics
-- Quality: +2.8% improvement over baseline
-- Diversity: +2.2% improvement over baseline
-- Relevance: +1.4% improvement over baseline
+### Automatic Metrics (BLEU/ROUGE/Perplexity)
 
-**Optimal Generation Config:** temp=0.3, top_k=10, samples=10
+| Model | Step Size | BLEU | ROUGE-2 | Perplexity |
+|-------|-----------|------|---------|------------|
+| Baseline | N/A | **0.258** | **0.523** | 125.6 |
+| **BAOA** | 5e-06 | 0.256 | 0.515 | **105.7** |
+| SGHMC | 5e-06 | 0.252 | 0.513 | 122.4 |
 
-**Learning Rate Sensitivity:**
-- BAOA is robust across LR range (1e-06 to 5e-06)
-- SGHMC is highly sensitive to LR (requires LR=5e-06)
+Model families are close on BLEU/ROUGE (within ~2%). BAOA achieves the best perplexity (−16%).
 
-### Analysis Reports
+### LLM-Judge Metrics (Quality/Diversity/Relevance)
 
-Detailed analysis available in:
-- [results/evaluation/analysis_bnn_vs_baseline.md](results/evaluation/analysis_bnn_vs_baseline.md) - Main findings
+| Model | vs Baseline | Verdict |
+|-------|-------------|---------|
+| **BAOA @ 1e-06** | **+2.8% quality, +2.2% diversity, +1.4% relevance** | **Recommended** |
+| SGHMC @ 5e-06 | +0.8% quality, +2.6% diversity, -4.7% relevance | Mixed |
+| SGHMC @ 1e-05 | -7.9% quality, -13.8% relevance | Avoid |
 
-### Recommendations
+### Recommended Configuration
 
-**For production use:**
-- Use BAOA sampler with LR=1e-06
-- Generation settings: temp=0.3, top_k=10, samples=10
-- Expected quality: 4.857/10 (vs baseline 4.386/10)
+- **Model:** BAOA with learning rate 1e-06
+- **Generation:** temp=0.3, top_k=10, samples=10
 
-**Avoid:**
-- SGHMC with LR > 5e-06 (performance degradation)
+## Evaluation
+
+Two evaluation approaches:
+
+1. **Automatic metrics** (BLEU, ROUGE, Perplexity) - via `results/scripts/bayesian_evaluator.py`
+2. **LLM-judge** (Quality, Diversity, Relevance) - via `results/scripts/llm_evaluation.py`
+
+Results and figures are in [results/](results/).
 
 ## References
 
-- Posteriors Package: [Documentation](https://normal-computing.github.io/posteriors/)
-- NanoGPT: Character-level language model [GitHub](https://github.com/karpathy/nanoGPT)
-- TinyShakespeare Dataset: [Link](https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt)
+- [Posteriors Package](https://normal-computing.github.io/posteriors/)
+- [NanoGPT](https://github.com/karpathy/nanoGPT)
+- [TinyShakespeare](https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt)
 
 ## License
 
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+MIT License. See [LICENSE](LICENSE).
