@@ -12,26 +12,39 @@ Bayesian inference methods for text generation using a NanoGPT-based character-l
 │   ├── generation_utils.py        # Text generation utilities
 │   └── nanogpt_utils.py           # Model/tokenizer loading
 │
-├── scripts/
-│   └── bayesian_training_script.py  # Main training entry point
+├── scripts/                       # Runnable scripts
+│   ├── bayesian_training_script.py  # Main training entry point
+│   ├── bayesian_evaluator.py      # BLEU/ROUGE/Perplexity evaluation
+│   ├── llm_evaluation.py          # LLM-judge evaluation
+│   └── llm_evaluation_parallel.py # Parallel LLM evaluation
 │
-├── baselines/nanogpt/
-│   └── model.py                   # NanoGPT architecture
+├── notebooks/                     # Jupyter notebooks
+│   ├── generation_pipeline.ipynb  # Text generation workflow
+│   ├── mcmc_training_colab.ipynb  # MCMC training notebook
+│   ├── comparison_report_step_size.ipynb  # Step size analysis
+│   └── blue_rouge_perplexity_eval.ipynb   # Metrics analysis
+│
+├── external/nanogpt/
+│   └── model.py                   # NanoGPT architecture (from Karpathy)
+│
+├── data/
+│   ├── raw/                       # Raw text data (train/val .txt)
+│   └── tokenized/                 # Tokenized data (train/val .bin)
 │
 ├── checkpoints/
 │   ├── baseline/models/           # Deterministic baseline model
-│   └── samplers/                   # Trained Bayesian models
+│   └── samplers/                  # Trained Bayesian models
 │       ├── sghmc_sampler/
 │       └── baoa_sampler/
 │
 ├── results/
 │   ├── final_report.md            # Evaluation report with findings
-│   ├── figures/                   # Visualizations
-│   └── scripts/                   # Evaluation utilities
-│       ├── bayesian_evaluator.py  # BLEU/ROUGE/Perplexity
-│       └── llm_evaluation.py      # LLM-judge evaluation
+│   ├── generation_outputs/        # Generated text samples
+│   └── evaluation/
+│       ├── automatic_metrics/     # BLEU/ROUGE/Perplexity results
+│       │   └── figures/           # Metric visualizations
+│       └── llm_judge/             # LLM-judge evaluation results
 │
-├── notebooks/                     # Training and generation notebooks
 ├── config.py                      # Hyperparameter configurations
 └── requirements.txt
 ```
@@ -52,7 +65,7 @@ Create a `.env` file:
 BASE_DIR=/path/to/your/project
 MODEL_PATH=${BASE_DIR}/checkpoints/baseline/models/baseline_model_2k.pt
 META_PATH=${BASE_DIR}/checkpoints/baseline/models/meta.pkl
-DATA_DIR=${BASE_DIR}/notebooks/nanoGPT
+DATA_DIR=${BASE_DIR}/data/tokenized
 DEVICE="cuda"  # or "cpu"
 WANDB_AVAILABLE="true"  # or "false"
 ```
@@ -71,12 +84,6 @@ python scripts/bayesian_training_script.py --sampler <SAMPLER_NAME>
 
 Where `<SAMPLER_NAME>` is one of: `sgld`, `sghmc`, `baoa`
 
-### Training with Evaluation
-
-```bash
-python scripts/bayesian_training_script.py --sampler baoa --eval
-```
-
 ### Advanced Options
 
 ```bash
@@ -84,14 +91,12 @@ python scripts/bayesian_training_script.py \
   --sampler baoa \
   --learning-rate 1e-6 \
   --batch-size 16 \
-  --train-samples 10000 \
-  --eval
+  --train-samples 10000
 ```
 
 Key parameters:
 - `--sampler`: Bayesian inference method (`sgld`, `sghmc`, `baoa`)
 - `--learning-rate`: Step size (critical for MCMC performance)
-- `--eval`: Enable post-training evaluation
 - `--no-wandb`: Disable Weights & Biases logging
 
 ## Configuration
@@ -139,10 +144,10 @@ Model families are close on BLEU/ROUGE (within ~2%). BAOA achieves the best perp
 
 Two evaluation approaches:
 
-1. **Automatic metrics** (BLEU, ROUGE, Perplexity) - via `results/scripts/bayesian_evaluator.py`
-2. **LLM-judge** (Quality, Diversity, Relevance) - via `results/scripts/llm_evaluation.py`
+1. **Automatic metrics** (BLEU, ROUGE, Perplexity) - via `scripts/bayesian_evaluator.py`
+2. **LLM-judge** (Quality, Diversity, Relevance) - via `scripts/llm_evaluation.py`
 
-Results and figures are in [results/](results/).
+Results are in [results/evaluation/](results/evaluation/).
 
 ## References
 

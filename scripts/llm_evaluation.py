@@ -33,7 +33,7 @@ class EvaluationConfig:
                  model_paths: List[str],
                  model_types: Optional[List[str]] = None,
                  change_params: bool = False,
-                 output_path: str = "checkpoints/generation_results/generation_results_testing.json",
+                 output_path: str = "results/generation_outputs/generation_results_testing.json",
                  device: str = DEVICE):
         """
         Initialize evaluation configuration.
@@ -650,7 +650,7 @@ def run_evaluation_pipeline(
     test_prompts: Optional[List[str]] = None,
     model_paths: List[str] = None,
     change_params: bool = False,
-    output_path: str = "checkpoints/generation_results/generation_results_testing.json",
+    output_path: str = "results/generation_outputs/generation_results_testing.json",
     use_local_qwen: bool = False,
     model_types: Optional[List[str]] = None,
     qwen_model: str = "Qwen/Qwen2.5-7B-Instruct",

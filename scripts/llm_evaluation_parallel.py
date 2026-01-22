@@ -52,7 +52,7 @@ def send_file(file_path: str, caption: Optional[str] = None) -> None:
 def _try_send_last_scores(caption: Optional[str] = None) -> None:
     """Best-effort send of last_eval_with_scores.json; silently continue on failure."""
     try:
-        last_scores_path = Path("checkpoints/generation_results/last_eval_with_scores.json")
+        last_scores_path = Path("results/generation_outputs/last_eval_with_scores.json")
         if last_scores_path.exists() and last_scores_path.stat().st_size > 0:
             send_file(str(last_scores_path), caption=caption)
             print(f"\U0001F4E4 Sent to Telegram: {last_scores_path}")
@@ -103,7 +103,7 @@ class EvaluationConfig:
                  model_paths: List[str],
                  model_types: Optional[List[str]] = None,
                  change_params: bool = False,
-                 output_path: str = "checkpoints/generation_results/generation_results_testing.json",
+                 output_path: str = "results/generation_outputs/generation_results_testing.json",
                  device: str = DEVICE,
                  max_workers: int = 4):
         """
@@ -826,7 +826,7 @@ def run_evaluation_pipeline(
     test_prompts: Optional[List[str]] = None,
     model_paths: List[str] = None,
     change_params: bool = False,
-    output_path: str = "checkpoints/generation_results/last_eval.json",
+    output_path: str = "results/generation_outputs/last_eval.json",
     use_local_qwen: bool = False,
     model_types: Optional[List[str]] = None,
     qwen_model: str = "Qwen/Qwen2.5-7B-Instruct",
@@ -902,7 +902,7 @@ def run_evaluation_pipeline(
     )
 
     # Deduplication: load previous results with scores to skip already-run combos
-    previous_scores_path = Path("checkpoints/generation_results/last_eval_with_scores.json")
+    previous_scores_path = Path("results/generation_outputs/last_eval_with_scores.json")
     previous_full_results: Dict[str, Dict] = {}
     skip_set = set()
     if previous_scores_path.exists() and previous_scores_path.stat().st_size > 0:

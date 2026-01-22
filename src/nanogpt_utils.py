@@ -16,9 +16,9 @@ parent_dir = Path(__file__).parent.parent
 sys.path.append(str(parent_dir))
 
 def _import_nanogpt():
-    baselines_path = config.BASE_DIR / "baselines"
-    if str(baselines_path) not in sys.path:
-        sys.path.append(str(baselines_path))
+    external_path = config.BASE_DIR / "external"
+    if str(external_path) not in sys.path:
+        sys.path.append(str(external_path))
     from nanogpt.model import GPT, GPTConfig
     return GPT, GPTConfig
 GPT, GPTConfig = _import_nanogpt()

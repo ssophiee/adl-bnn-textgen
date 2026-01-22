@@ -1,15 +1,13 @@
 """
 Bayesian NanoGPT Training Script
 
-Supported SGMCMC samplers:
-- sgld: Stochastic Gradient Langevin Dynamics
-- sghmc: Stochastic Gradient Hamiltonian Monte Carlo
-- baoa: Bayesian Adaptive Optimization Algorithm
+Supported SGMCMC samplers: sgld, sghmc, baoa
+Link to samplers: https://normal-computing.github.io/posteriors/
 
 Examples:
-    python scripts/bayesian_training_script.py --sampler sgld --eval
-    python scripts/bayesian_training_script.py --sampler sghmc --eval
-    python scripts/bayesian_training_script.py --sampler baoa --eval
+    python scripts/bayesian_training_script.py --sampler sgld
+    python scripts/bayesian_training_script.py --sampler sghmc
+    python scripts/bayesian_training_script.py --sampler baoa
 """
 import sys
 import argparse
@@ -18,7 +16,6 @@ from pathlib import Path
 import numpy as np
 import torch
 import datetime
-import json
 
 # Ensure project root and relevant subdirs are on sys.path BEFORE imports
 current_dir = Path.cwd()
@@ -26,7 +23,7 @@ project_root = current_dir if (current_dir / 'src').exists() else current_dir.pa
 paths_to_add = [
     project_root,
     project_root / 'src',
-    project_root / 'baselines',
+    project_root / 'external',
 ]
 for p in paths_to_add:
     sp = str(p)
@@ -37,21 +34,6 @@ for p in paths_to_add:
 from src.nanogpt_utils import load_model, load_tokenizer
 from src.bayesian_utils import create_training_batches, run_bayesian_pipeline
 from config import CONFIG, MODEL_PATH, META_PATH, DATA_DIR, CONFIG_SGLD, CONFIG_SGHMC, CONFIG_BAOA
-from src.evaluation.bayesian_evaluator import BayesianNanoGPTEvaluator, evaluate_bayesian_splits
-
-"""Bayesian NanoGPT training script with optional external evaluation.
-
-Usage examples:
-    # SGMCMC Samplers (with automatic warmup and sampling schedule)
-    python scripts/bayesian_training_script.py --sampler sgld --eval
-    python scripts/bayesian_training_script.py --sampler sghmc --eval
-    python scripts/bayesian_training_script.py --sampler baoa --eval
-
-    # Note: For SGMCMC samplers (sgld, sghmc, baoa), the script will automatically:
-    #   - Run 200 warmup steps
-    #   - Run 1000 sampling steps
-    #   - Collect every 10th sample (~100 samples total)
-"""
 
 
 def setup_logging(log_dir: Path, sampler_type: str):
@@ -147,55 +129,6 @@ def parse_args():
         help='Random seed for reproducibility'
     )
 
-    # Evaluation options
-    parser.add_argument(
-        '--eval',
-        action='store_true',
-        help='Run Bayesian evaluation after training (samples from posterior for generation)'
-    )
-    parser.add_argument(
-        '--eval-splits',
-        nargs='*',
-        default=['val','train'],
-        help='Dataset splits to evaluate'
-    )
-    parser.add_argument(
-        '--eval-num-posterior-samples',
-        type=int,
-        default=10,
-        help='Number of posterior samples to use for Bayesian evaluation'
-    )
-    parser.add_argument(
-        '--eval-max-samples',
-        type=int,
-        default=200,
-        help='Max samples (controls perplexity batch iterations)'
-    )
-    parser.add_argument(
-        '--eval-num-text-samples',
-        type=int,
-        default=20,
-        help='Number of text samples for BLEU/ROUGE'
-    )
-    parser.add_argument(
-        '--eval-prompt-length',
-        type=int,
-        default=20,
-        help='Prompt length for generation'
-    )
-    parser.add_argument(
-        '--eval-generation-length',
-        type=int,
-        default=30,
-        help='Generation length'
-    )
-    parser.add_argument(
-        '--eval-max-tokens',
-        type=int,
-        default=None,
-        help='Optional cap on tokens loaded from each split (fast debug)'
-    )
-    
     return parser.parse_args()
 
 
@@ -321,63 +254,6 @@ def main():
         if collected_samples:
             logger.info(f"\nCollected {len(collected_samples)} SGMCMC samples for generation")
 
-        # Optional external evaluation using BayesianNanoGPTEvaluator
-        if args.eval:
-            logger.info("\n" + "="*70)
-            logger.info("Running Bayesian evaluation with posterior sampling...")
-            logger.info("="*70)
-            try:
-                eval_cfg = {
-                    'data_dir': str(DATA_DIR),
-                    'splits': args.eval_splits,
-                    'batch_size': config['batch_size'],
-                    'max_eval_samples': args.eval_max_samples,
-                    'num_text_samples': args.eval_num_text_samples,
-                    'prompt_length': args.eval_prompt_length,
-                    'generation_length': args.eval_generation_length,
-                    'max_tokens': args.eval_max_tokens,
-                }
-                
-                # Create Bayesian evaluator with appropriate sampler state
-                bayesian_evaluator = BayesianNanoGPTEvaluator(
-                    model=model,
-                    stoi=stoi,
-                    itos=itos,
-                    sampler_type=args.sampler,
-                    state=state if args.sampler in ['vi', 'ekf', 'laplace'] else None,
-                    collected_samples=collected_samples if args.sampler in ['sgld', 'sghmc', 'baoa'] else None,
-                    device='auto',
-                    num_posterior_samples=10,
-                )
-                
-                split_results = evaluate_bayesian_splits(bayesian_evaluator, eval_cfg)
-                
-                logger.info("\nBayesian Evaluation Results:")
-                for split, res in split_results.items():
-                    if 'error' in res:
-                        logger.error(f"[{split}] Evaluation error: {res['error']}")
-                    else:
-                        logger.info(f"[{split}] sampler={res.get('sampler_type')} posterior_samples={res.get('num_posterior_samples')}")
-                        logger.info(f"        tokens={res.get('total_tokens')} ppl={res.get('perplexity'):.4f} bleu={res.get('bleu',0.0):.4f} rouge1={res.get('rouge1',0.0):.4f}")
-                
-                # Persist evaluation JSON
-                out_dir = Path('checkpoints') / 'samplers' / f"{args.sampler}_sampler"
-                out_dir.mkdir(parents=True, exist_ok=True)
-                ts_eval = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
-                out_file = out_dir / f"bayesian_eval_{ts_eval}.json"
-                payload = {
-                    'config': eval_cfg,
-                    'sampler_type': args.sampler,
-                    'num_posterior_samples': 10,
-                    'results': split_results,
-                    'vocab_size': bayesian_evaluator.vocab_size,
-                }
-                with open(out_file, 'w') as f:
-                    json.dump(payload, f, indent=2)
-                logger.info(f"Bayesian evaluation saved to: {out_file}")
-            except Exception:
-                logger.exception("Bayesian evaluation failed")
-        
         logger.info("="*70)
         logger.info(f"Log file saved to: {log_file}")
         logger.info("="*70)

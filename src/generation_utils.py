@@ -108,7 +108,7 @@ def generate_text_bayesian_sgmcmc(model_path, start_prompt,
         top_k: If set, only sample from top k tokens
         num_samples: Number of samples to use (default: all samples)
         device: Device to run generation on ('cpu', 'cuda', 'mps')
-        meta_path: Path to meta.pkl file (default: auto-detect from baselines/nanogpt/)
+        meta_path: Path to meta.pkl file (default: auto-detect from external/nanogpt/)
 
     Returns:
         generated_text: String of generated text
@@ -126,7 +126,7 @@ def generate_text_bayesian_sgmcmc(model_path, start_prompt,
     """
     import numpy as np
     import torch.nn.functional as F
-    from baselines.nanogpt.model import GPT, GPTConfig
+    from external.nanogpt.model import GPT, GPTConfig
 
     # Load checkpoint
     checkpoint_data = load_checkpoint_for_generation(model_path, device=device)
@@ -326,7 +326,7 @@ def generate_text_standard(model_path, start_prompt,
         top_k: If set, only sample from top k tokens
         num_samples: Number of independent samples to generate
         device: Device to run generation on ('cpu', 'cuda', 'mps')
-        meta_path: Path to meta.pkl file (default: auto-detect from baselines/nanogpt/)
+        meta_path: Path to meta.pkl file (default: auto-detect from external/nanogpt/)
 
     Returns:
         generated_texts: List of generated text strings (including prompt)
@@ -341,7 +341,7 @@ def generate_text_standard(model_path, start_prompt,
         ...     num_samples=3
         ... )
     """
-    from baselines.nanogpt.model import GPT, GPTConfig
+    from external.nanogpt.model import GPT, GPTConfig
 
     # Load model checkpoint
     checkpoint = torch.load(model_path, map_location='cpu', weights_only=False)
@@ -362,7 +362,7 @@ def generate_text_standard(model_path, start_prompt,
 
     # Load tokenizer
     if meta_path is None:
-        # Auto-detect meta.pkl from baselines
+        # Auto-detect meta.pkl from config
         meta_path = Path(META_PATH)
 
     encode, decode = _load_tokenizer(meta_path)
