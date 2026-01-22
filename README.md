@@ -1,6 +1,6 @@
 # Bayesian Neural Network Text Generation
 
-Bayesian inference methods for text generation using a NanoGPT-based character-level language model trained on Shakespeare text. This project compares SGMCMC samplers (BAOA, SGHMC, SGLD) against a deterministic baseline to evaluate whether Bayesian approaches can improve text generation quality while providing uncertainty estimates.
+Bayesian inference methods for text generation using a NanoGPT-based character-level language model trained on Shakespeare text. This project compares SGMCMC samplers (BAOA, SGHMC, SGLD) against a deterministic baseline to evaluate whether Bayesian approaches can improve text generation quality.
 
 **Key Finding:** BAOA achieves the best perplexity (−16% vs baseline) and outperforms the deterministic baseline on all LLM-judge metrics (+2.8% quality, +2.2% diversity, +1.4% relevance).
 
