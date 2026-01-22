@@ -1,6 +1,6 @@
 # Bayesian Neural Network Text Generation
 
-Bayesian inference methods for text generation using a NanoGPT-based character-level language model trained on Shakespeare text. This project compares SGMCMC samplers (BAOA, SGHMC, SGLD) against a deterministic baseline to evaluate whether Bayesian approaches can improve text generation quality.
+Bayesian inference methods for text generation using a NanoGPT-based character-level language model trained on Shakespeare text. This project compares SGMCMC samplers (BAOA, SGHMC) against a deterministic baseline to evaluate whether Bayesian approaches can improve text generation quality.
 
 **Key Finding:** BAOA achieves the best perplexity (−16% vs baseline) and outperforms the deterministic baseline on all LLM-judge metrics (+2.8% quality, +2.2% diversity, +1.4% relevance).
 
@@ -14,13 +14,15 @@ Bayesian inference methods for text generation using a NanoGPT-based character-l
 │
 ├── scripts/                       # Runnable scripts
 │   ├── bayesian_training_script.py  # Main training entry point
-│   ├── bayesian_evaluator.py      # BLEU/ROUGE/Perplexity evaluation
+│   ├── bayesian_evaluator.py      # BLEU/ROUGE/Perplexity evaluation (Bayesian)
+│   ├── nanogpt_evaluator.py       # BLEU/ROUGE/Perplexity evaluation (baseline)
 │   ├── llm_evaluation.py          # LLM-judge evaluation
 │   └── llm_evaluation_parallel.py # Parallel LLM evaluation
 │
 ├── notebooks/                     # Jupyter notebooks
 │   ├── generation_pipeline.ipynb  # Text generation workflow
-│   ├── mcmc_training_colab.ipynb  # MCMC training notebook
+│   ├── mcmc_training_colab.ipynb  # MCMC training notebook (Colab)
+│   ├── nanogpt_training_colab.ipynb  # Baseline training notebook (Colab)
 │   ├── comparison_report_step_size.ipynb  # Step size analysis
 │   └── blue_rouge_perplexity_eval.ipynb   # Metrics analysis
 │
