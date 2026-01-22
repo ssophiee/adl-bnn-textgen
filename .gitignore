@@ -6,6 +6,6 @@ __pycache__/
 *.pt
 bayesian_nanogpt/
 .env
-*.bin
+# *.bin
 .github/
 .logs
