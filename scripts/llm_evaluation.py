@@ -509,9 +509,9 @@ def _evaluate_with_mock_scores(results_by_prompt: Dict[str, Dict]) -> Dict[str, 
         for unique_id in results.keys():
             # Generate realistic-looking mock scores with some variance
             all_scores[unique_id] = {
-                "quality_score": np.random.uniform(6.0, 9.5),
-                "diversity_score": np.random.uniform(5.5, 9.0),
-                "relevance_score": np.random.uniform(6.5, 9.5),
+                "quality_score": -509,
+                "diversity_score": -509,
+                "relevance_score": -509,
                 "brief_reasoning": "Mock evaluation score (replace with real LLM judge)"
             }
 

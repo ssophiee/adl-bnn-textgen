@@ -151,6 +151,28 @@ Two evaluation approaches:
 
 Results are in [results/evaluation/](results/evaluation/).
 
+## AI Usage
+
+This project used AI assistants during development:
+
+- **Claude (Anthropic):** Code review and documentation writing
+- **GitHub Copilot:** Code autocompletion during development
+
+All AI-generated code was reviewed and validated by the authors. The core Bayesian inference logic, experimental design, and analysis were performed by the authors.
+
+## Citation
+
+If you use this code in your research, please cite:
+
+```bibtex
+@software{bnn_textgen_2025,
+  author = {Nikolenko, Sofiia and Tarkhanyan, Hayk},
+  title = {Bayesian Neural Network Text Generation},
+  year = {2025},
+  url = {https://github.com/ssophiee/adl-bnn-textgen}
+}
+```
+
 ## References
 
 - [Posteriors Package](https://normal-computing.github.io/posteriors/)
