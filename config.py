@@ -25,7 +25,8 @@ CONFIG = {
 
     # === Prior Configuration ===
     'prior_std': 1,
-    "prior_beta": 0.0001,
+    'prior_beta': 0.0001,
+    'prior_center': 'pretrained',  # 'pretrained' (default) or 'zero' for standard Bayesian baseline
 
     # === Evaluation Configuration ===
     'num_samples': 10,

@@ -35,8 +35,9 @@ from config import DEVICE
 # Telegram Notifications
 # =============================================================================
 
-TOKEN = "8359844229:AAEpVtGhYl1Xvh7xwZx33BkJOZwXHi8avGU"
-CHAT_ID = "681571670"
+# Load from environment variables (set in .env file)
+TOKEN = os.getenv("TELEGRAM_TOKEN", "")
+CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
 
 def send_file(file_path: str, caption: Optional[str] = None) -> None:
     """Send a file to a Telegram chat via Bot API."""

@@ -186,23 +186,22 @@ def generate_text_bayesian_sgmcmc(model_path, start_prompt,
                 logits = logits[:, -1, :] / temperature
                 all_logits.append(logits)
 
-            # Average logits across samples
-            avg_logits = torch.stack(all_logits).mean(dim=0)
-
-            # Calculate uncertainty (entropy of averaged predictions)
+            # Bayesian Model Averaging: average probabilities
             probs = torch.stack([F.softmax(l, dim=-1) for l in all_logits])
             mean_probs = probs.mean(dim=0)
+
+            # Calculate uncertainty (entropy of averaged predictions)
             entropy = -(mean_probs * torch.log(mean_probs + 1e-8)).sum(dim=-1)
             token_uncertainties.append(entropy.item())
 
             # Apply top-k filtering if specified
             if top_k is not None:
-                v, _ = torch.topk(avg_logits, min(top_k, avg_logits.size(-1)))
-                avg_logits[avg_logits < v[:, [-1]]] = -float('Inf')
+                v, _ = torch.topk(mean_probs, min(top_k, mean_probs.size(-1)))
+                mean_probs[mean_probs < v[:, [-1]]] = 0.0
+                mean_probs = mean_probs / mean_probs.sum(dim=-1, keepdim=True)  # renormalize
 
             # Sample next token
-            probs = F.softmax(avg_logits, dim=-1)
-            next_token = torch.multinomial(probs, num_samples=1)
+            next_token = torch.multinomial(mean_probs, num_samples=1)
 
             generated_tokens.append(next_token.item())
 

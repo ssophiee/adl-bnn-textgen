@@ -17,6 +17,8 @@ from config import DEVICE, CONFIG, MODEL_PATH, WANDB_AVAILABLE, CONFIG_SGLD, CON
 from src.nanogpt_utils import load_model
 MODEL, checkpoint = load_model(Path(MODEL_PATH), DEVICE) # TODO: pass device
 INITIAL_PARAMS = {k: v.clone().to(DEVICE) for k, v in MODEL.named_parameters()}
+# Zero-centered prior mean (standard Bayesian approach)
+ZERO_PARAMS = {k: torch.zeros_like(v) for k, v in MODEL.named_parameters()}
 
 def create_training_batches(data, batch_size, seq_length, num_samples):
     """Create training batches from the data for next-token prediction"""
@@ -55,32 +57,40 @@ def single_batch_loss(params, batch):
     loss = F.cross_entropy(logits_flat, targets_flat, reduction='mean')
     return loss
 
-def log_posterior_fn(params, batch):    
+def log_posterior_fn(params, batch):
     """
     Compute log posterior with character-based model.
-    
+
     Each training sample is a sequence that predicts 1 next character.
+
+    Prior centering (CONFIG['prior_center']):
+        - 'pretrained': Center at pretrained weights (default). Localizes sampling
+          around the pretrained solution, similar to warm-start approaches.
+        - 'zero': Standard zero-centered prior (traditional Bayesian baseline).
     """
     x, y = batch  # x: (batch_size, seq_length), y: (batch_size, 1)
     MODEL.eval()
     # Compute negative log-likelihood for the batch
     nll = single_batch_loss(params, batch)
-    
+
+    # Select prior center: 'pretrained' (default) or 'zero'
+    prior_mean = ZERO_PARAMS if CONFIG.get('prior_center') == 'zero' else INITIAL_PARAMS
+
     # Compute log prior
     log_prior = posteriors.diag_normal_log_prob(
-        params, 
-        mean=INITIAL_PARAMS, 
+        params,
+        mean=prior_mean,
         sd_diag=CONFIG.get('prior_std', 0.01)
     )
-        
+
     # Total number of predictions in training set
     total_samples = CONFIG['train_samples']  # Total sequences = total predictions
-    
+
     # Scale likelihood to full dataset
     # nll is mean loss per prediction in batch
     log_likelihood = -nll * total_samples
-    
-    beta = CONFIG.get('prior_beta', 1.0 / total_samples)  
+
+    beta = CONFIG.get('prior_beta', 1.0 / total_samples)
     log_posterior = log_likelihood + beta * log_prior
 
     return log_posterior, {}
