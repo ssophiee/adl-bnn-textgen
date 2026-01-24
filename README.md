@@ -121,6 +121,13 @@ See [results/final_report.md](results/final_report.md) for the complete evaluati
 
 ### Automatic Metrics (BLEU/ROUGE/Perplexity)
 
+**Note on perplexity:** this repo can report two variants.
+
+- **External GPT-2 perplexity** (`perplexity_external_gpt2`): computed via HuggingFace `evaluate` with `model_id='gpt2'` (GPT-2 BPE tokenizer). This is an *external* reference metric.
+- **Internal (training-tokenizer) perplexity** (`perplexity` in the Python evaluators, and `perplexity_internal` in the `blue_rouge_perplexity_eval` notebook): computed under the trained NanoGPT model using the same tokenizer/vocabulary as training (character-level `meta.pkl`).
+
+Unless explicitly labeled as "internal", tables/plots show the GPT-2 external perplexity.
+
 | Model | Step Size | BLEU | ROUGE-2 | Perplexity |
 |-------|-----------|------|---------|------------|
 | Baseline | N/A | **0.258** | **0.523** | 125.6 |
@@ -166,7 +173,7 @@ If you use this code in your research, please cite:
 
 ```bibtex
 @software{bnn_textgen_2025,
-  author = {Nikolenko, Sofiia and Tarkhanyan, Hayk},
+  author = {Nikolenko, Sofiia and Tarkhanyan, Aik},
   title = {Bayesian Neural Network Text Generation},
   year = {2025},
   url = {https://github.com/ssophiee/adl-bnn-textgen}

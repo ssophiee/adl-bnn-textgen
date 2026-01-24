@@ -1,4 +1,5 @@
 import time
+import math
 import numpy as np
 import evaluate as hf_evaluate
 from typing import Any, Dict, List, Optional, Tuple
@@ -166,16 +167,91 @@ class BayesianNanoGPTEvaluator:
 
         return references, predictions
 
-    def calculate_perplexity(
+    def calculate_perplexity_internal(
         self,
         data: np.ndarray,
         batch_size: int = 16,
         max_batches: int = 50,
     ) -> Optional[float]:
+        """Compute perplexity under *this* model using the training tokenizer.
+
+        Note: For Bayesian models, we estimate the expected NLL by averaging the
+        per-sample cross-entropy loss over posterior samples (Monte Carlo), then
+        exponentiating.
+        """
+        if len(data) < 3:
+            return None
+
+        # We need seq_len+1 tokens to form (x, y) pairs of length seq_len.
+        seq_len = min(int(self.model.config.block_size), 256)
+        window_len = seq_len + 1
+        max_start = len(data) - window_len
+        if max_start <= 0:
+            return None
+
+        num_batches = min(max_batches, max_start // batch_size) or 1
+        stride = max(1, max_start // (num_batches * batch_size))
+
+        param_samples = self.sample_parameters()
+        if not param_samples:
+            return None
+
+        total_nll = 0.0
+        total_tokens = 0
+
+        self.model.eval()
+        with torch.no_grad():
+            for b in range(num_batches):
+                batch_x = []
+                batch_y = []
+                for j in range(batch_size):
+                    i = b * batch_size + j
+                    start_idx = i * stride
+                    end_idx = start_idx + window_len
+                    if end_idx > len(data):
+                        continue
+                    window = data[start_idx:end_idx].astype(np.int64)
+                    x = torch.from_numpy(window[:-1])
+                    y = torch.from_numpy(window[1:])
+                    batch_x.append(x)
+                    batch_y.append(y)
+
+                if not batch_x:
+                    continue
+
+                x_t = torch.stack(batch_x, dim=0).to(self.device)
+                y_t = torch.stack(batch_y, dim=0).to(self.device)
+
+                losses = []
+                for params in param_samples:
+                    _, loss = func.functional_call(self.model, params, (x_t, y_t))
+                    if loss is not None:
+                        losses.append(loss)
+
+                if not losses:
+                    continue
+
+                # Model loss is mean cross-entropy over all tokens in the batch.
+                mean_loss = torch.stack(losses).mean()
+                num_tokens_batch = int(y_t.numel())
+                total_nll += float(mean_loss.detach().cpu().double()) * num_tokens_batch
+                total_tokens += num_tokens_batch
+
+        if total_tokens == 0:
+            return None
+        return float(math.exp(total_nll / total_tokens))
+
+    def calculate_perplexity_external_gpt2(
+        self,
+        data: np.ndarray,
+        batch_size: int = 16,
+        max_batches: int = 50,
+    ) -> Optional[float]:
+        """Compute an *external* perplexity using HF's GPT-2 metric (BPE tokenizer)."""
         if self.perplexity_metric is None:
             return None
 
-        seq_len = min(self.model.config.block_size, 256)
+        seq_len = min(int(self.model.config.block_size), 256)
         max_start = len(data) - seq_len
         if max_start <= 0:
             return None
@@ -255,12 +331,14 @@ class BayesianNanoGPTEvaluator:
             'num_posterior_samples': self.num_posterior_samples,
         }
 
-        perplexity = self.calculate_perplexity(
-            data,
-            batch_size,
-            max_batches=min(100, max_eval_samples // batch_size)
-        )
-        results['perplexity'] = perplexity if perplexity is not None else 0.0
+        max_ppl_batches = min(100, max_eval_samples // batch_size)
+        # Canonical: perplexity under our model + training tokenizer.
+        ppl_internal = self.calculate_perplexity_internal(data, batch_size, max_batches=max_ppl_batches)
+        results['perplexity'] = ppl_internal if ppl_internal is not None else 0.0
+
+        # Additional: external GPT-2 (BPE) perplexity for rough comparability.
+        ppl_external_gpt2 = self.calculate_perplexity_external_gpt2(data, batch_size, max_batches=max_ppl_batches)
+        results['perplexity_external_gpt2'] = ppl_external_gpt2 if ppl_external_gpt2 is not None else 0.0
 
         if len(data) > 100:
             refs, preds = self.generate_samples_for_metrics(
