@@ -50,6 +50,14 @@ This report presents a comprehensive evaluation of Bayesian Neural Networks (BAO
 
 ## 1) Data Summary
 
+### Prior Configuration
+
+All Bayesian models use a **pretrained-centered prior**: the prior mean is set to the pretrained NanoGPT weights (`prior_center: 'pretrained'`), not zero.
+
+| Parameter | Value | Description |
+|-----------|-------|-------------|
+| `prior_center` | `pretrained` | Prior mean = pretrained weights |
+
 ### Models Evaluated
 
 | Model | Step Size | Run ID | Generations |

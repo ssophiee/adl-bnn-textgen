@@ -103,6 +103,14 @@ Key parameters:
 
 ## Configuration
 
+### Prior Configuration
+
+All reported results use a **pretrained-centered prior** (`prior_center: 'pretrained'`), meaning the prior mean is set to the pretrained NanoGPT weights rather than zero. This is a form of empirical Bayes that provides better performance by leveraging the pretrained initialization.
+
+Alternative: Set `prior_center: 'zero'` for a standard zero-centered Bayesian prior.
+
+### Sampler Hyperparameters
+
 Sampler hyperparameters in [config.py](config.py):
 
 ```python
