@@ -38,15 +38,14 @@ CONFIG = {
     'wandb_project': 'bayesian-nanogpt',
 }
 
-# === SGMCMC Sampler Configurations ===
+# # === SGMCMC Sampler Configurations ===
 
 CONFIG_SGLD = {
     **CONFIG,
     'learning_rate': 1e-6,
     'sgld_beta': 0.0,  # Gradient noise correction
     'temperature': 1.0,
-    'prior_beta': 0.0001,  # Reduced prior influence
-
+    'prior_std': 0.1,  
     # Warm-up and sampling schedule
     'warmup_steps': 200,
     'sampling_steps': 1000,
@@ -59,7 +58,8 @@ CONFIG_SGHMC = {
     'sghmc_alpha': 0.1,      
     'sghmc_beta': 0.0,          
     'sghmc_sigma': 1.0,         
-    'temperature': 1.0,         
+    'temperature': 1.0,     
+    'prior_std': 0.1,      
 
     # Warm-up and sampling schedule
     'warmup_steps': 200,
@@ -67,16 +67,140 @@ CONFIG_SGHMC = {
     'thinning': 10,  # Collect every 10th sample
 }
 
-CONFIG_BAOA = {
+CONFIG = {
+    # === Data Configuration ===
+    'batch_size': 16,
+    'train_samples': 10000,
+    'max_seq_length': 128,
+
+    # === Training Configuration ===
+    'learning_rate': 0.0001,
+    'temperature': 1,
+
+    # === Prior Configuration ===
+    'prior_std': 0.1,  # Changed from 1, beta removed
+    'prior_center': 'pretrained',  # Default
+
+    # === Evaluation Configuration ===
+    'num_samples': 10,
+    'max_new_tokens': 100,
+    'generation_temperature': 0.8,
+
+    # === Saving Configuration ===
+    'save_dir': 'checkpoints/samplers',
+    'wandb_project': 'bayesian-nanogpt',
+}
+
+# === BAOA Configs ===
+
+CONFIG_BAOA_1e6_PRETRAINED = {
     **CONFIG,
     'learning_rate': 1e-6,
-    'baoa_alpha': 0.01,  # Momentum decay
-    'baoa_sigma': 1.0,  # Prior std for momenta
+    'baoa_alpha': 0.01,
+    'baoa_sigma': 1.0,
     'temperature': 1.0,
-    'prior_beta': 0.0001,  # Reduced prior influence
-
-    # Warm-up and sampling schedule
+    'prior_std': 0.1,  
+    'prior_center': 'pretrained',
     'warmup_steps': 200,
     'sampling_steps': 1000,
-    'thinning': 10,  # Collect every 10th sample
+    'thinning': 10,
 }
+
+CONFIG_BAOA_1e6_ZERO = {
+    **CONFIG,
+    'learning_rate': 1e-6,
+    'baoa_alpha': 0.01,
+    'baoa_sigma': 1.0,
+    'temperature': 1.0,
+    'prior_std': 0.1,  # Same as pretrained for fair comparison
+    'prior_center': 'zero',
+    'warmup_steps': 200,
+    'sampling_steps': 1000,
+    'thinning': 10,
+}
+
+CONFIG_BAOA_5e6_PRETRAINED = {
+    **CONFIG,
+    'learning_rate': 5e-6,
+    'baoa_alpha': 0.01,
+    'baoa_sigma': 1.0,
+    'temperature': 1.0,
+    'prior_std': 1,  # Matched to SGHMC and zero configs for fair comparison
+    'prior_center': 'pretrained',
+    'warmup_steps': 200,
+    'sampling_steps': 1000,
+    'thinning': 10,
+}
+
+CONFIG_BAOA_5e6_ZERO = {
+    **CONFIG,
+    'learning_rate': 5e-6,
+    'baoa_alpha': 0.01,
+    'baoa_sigma': 1.0,
+    'temperature': 1.0,
+    'prior_std': 1,
+    'prior_center': 'zero',
+    'warmup_steps': 200,
+    'sampling_steps': 1000,
+    'thinning': 10,
+}
+
+# === SGHMC Configs ===
+
+CONFIG_SGHMC_5e6_PRETRAINED = {
+    **CONFIG,
+    'learning_rate': 5e-6,
+    'sghmc_alpha': 0.1,
+    'sghmc_beta': 0.0,
+    'sghmc_sigma': 1.0,
+    'temperature': 1.0,
+    'prior_std': 1,  # Larger than BAOA: SGHMC is more sensitive to prior gradients
+    'prior_center': 'pretrained',
+    'warmup_steps': 200,
+    'sampling_steps': 1000,
+    'thinning': 10,
+}
+
+CONFIG_SGHMC_5e6_ZERO = {
+    **CONFIG,
+    'learning_rate': 5e-6,
+    'sghmc_alpha': 0.1,
+    'sghmc_beta': 0.0,
+    'sghmc_sigma': 1.0,
+    'temperature': 1.0,
+    'prior_std': 1,
+    'prior_center': 'zero',
+    'warmup_steps': 200,
+    'sampling_steps': 1000,
+    'thinning': 10,
+}
+
+CONFIG_SGHMC_1e5_PRETRAINED = {
+    **CONFIG,
+    'learning_rate': 1e-5,
+    'sghmc_alpha': 0.1,
+    'sghmc_beta': 0.0,
+    'sghmc_sigma': 1.0,
+    'temperature': 1.0,
+    'prior_std': 1,
+    'prior_center': 'pretrained',
+    'warmup_steps': 200,
+    'sampling_steps': 1000,
+    'thinning': 10,
+}
+
+CONFIG_SGHMC_1e5_ZERO = {
+    **CONFIG,
+    'learning_rate': 1e-5,
+    'sghmc_alpha': 0.1,
+    'sghmc_beta': 0.0,
+    'sghmc_sigma': 1.0,
+    'temperature': 1.0,
+    'prior_std': 1,
+    'prior_center': 'zero',
+    'warmup_steps': 200,
+    'sampling_steps': 1000,
+    'thinning': 10,
+}
+
+CONFIG_BAOA = CONFIG_BAOA_1e6_PRETRAINED

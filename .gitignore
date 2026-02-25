@@ -8,4 +8,5 @@ bayesian_nanogpt/
 .env
 # *.bin
 .github/
-.logs
+run_all_configs.sh
+/logs

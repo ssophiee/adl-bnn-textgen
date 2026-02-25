@@ -1,13 +1,17 @@
 """
 Bayesian NanoGPT Training Script
 
-Supported SGMCMC samplers: sgld, sghmc, baoa
+Supported SGMCMC samplers: sghmc, baoa
 Link to samplers: https://normal-computing.github.io/posteriors/
 
 Examples:
-    python scripts/bayesian_training_script.py --sampler sgld
-    python scripts/bayesian_training_script.py --sampler sghmc
-    python scripts/bayesian_training_script.py --sampler baoa
+    # Use a named config
+    python scripts/bayesian_training_script.py --config CONFIG_BAOA_1e6_PRETRAINED
+    python scripts/bayesian_training_script.py --config CONFIG_SGHMC_5e6_ZERO
+
+    # Override specific parameters
+    python scripts/bayesian_training_script.py --config CONFIG_BAOA_1e6_PRETRAINED --prior-std 5.0
+    python scripts/bayesian_training_script.py --config CONFIG_BAOA_5e6_PRETRAINED --prior-center zero
 """
 import sys
 import argparse
@@ -30,10 +34,10 @@ for p in paths_to_add:
     if sp not in sys.path:
         sys.path.append(sp)
 
-# Module imports (now safe)
 from src.nanogpt_utils import load_model, load_tokenizer
 from src.bayesian_utils import create_training_batches, run_bayesian_pipeline
-from config import CONFIG, MODEL_PATH, META_PATH, DATA_DIR, CONFIG_SGLD, CONFIG_SGHMC, CONFIG_BAOA
+import config as cfg
+from config import MODEL_PATH, META_PATH, DATA_DIR
 
 
 def setup_logging(log_dir: Path, sampler_type: str):
@@ -74,13 +78,27 @@ def parse_args():
         description='Train Bayesian NanoGPT with different inference methods'
     )
     parser.add_argument(
-        '--sampler',
+        '--config',
         type=str,
-        default='sgld',
-        choices=['sgld', 'sghmc', 'baoa'],
-        help='SGMCMC sampler to use'
+        default='CONFIG_BAOA_1e6_PRETRAINED',
+        help='Config name from config.py (e.g., CONFIG_BAOA_1e6_PRETRAINED, CONFIG_SGHMC_5e6_ZERO)'
     )
-    
+
+    parser.add_argument(
+        '--prior-center',
+        type=str,
+        default=None,
+        choices=['pretrained', 'zero'],
+        help='Prior center: pretrained weights or zero (overrides config)'
+    )
+
+    parser.add_argument(
+        '--prior-std',
+        type=float,
+        default=None,
+        help='Prior standard deviation (overrides config)'
+    )
+
     parser.add_argument(
         '--epochs',
         type=int,
@@ -143,41 +161,51 @@ def set_seed(seed: int):
 def main():
     """Main training function"""
     args = parse_args()
-    
+
+    # Extract sampler type from config name for logging
+    sampler_type = 'baoa' if 'BAOA' in args.config else 'sghmc' if 'SGHMC' in args.config else 'unknown'
+
     # Setup logging
     log_dir = Path(args.log_dir)
-    logger, log_file = setup_logging(log_dir, args.sampler)
-    
+    logger, log_file = setup_logging(log_dir, sampler_type)
+
     logger.info("="*70)
     logger.info("BAYESIAN NANOGPT TRAINING")
     logger.info("="*70)
-    logger.info(f"Sampler: {args.sampler.upper()}")
+    logger.info(f"Config: {args.config}")
     logger.info(f"Log file: {log_file}")
     logger.info(f"Using W&B: {not args.no_wandb}")
 
     # Note for MCMC samplers
-    if args.sampler in ['sgld', 'sghmc', 'baoa']:
-        logger.info("\nMCMC Sampler Configuration:")
-        logger.info("  - This sampler uses warmup and sampling schedule")
-        logger.info("  - Training will automatically stop after completing the schedule")
-        logger.info("  - Check config.py for warmup_steps, sampling_steps, and thinning settings")
+    logger.info("\nMCMC Sampler Configuration:")
+    logger.info("  - This sampler uses warmup and sampling schedule")
+    logger.info("  - Training will automatically stop after completing the schedule")
+    logger.info("  - Check config.py for warmup_steps, sampling_steps, and thinning settings")
 
     logger.info("="*70)
     
     # Set seed
     set_seed(args.seed)
     logger.info(f"Random seed set to: {args.seed}")
-    
-    # Select appropriate config based on sampler type
-    if args.sampler == 'sgld':
-        config = CONFIG_SGLD.copy()
-    elif args.sampler == 'sghmc':
-        config = CONFIG_SGHMC.copy()
-    elif args.sampler == 'baoa':
-        config = CONFIG_BAOA.copy()
-    else:
-        raise ValueError(f"Unknown sampler type: {args.sampler}. Must be one of: 'sgld', 'sghmc', 'baoa'")
 
+    # Load config by name
+    try:
+        config = getattr(cfg, args.config).copy()
+        logger.info(f"Loaded config: {args.config}")
+    except AttributeError:
+        available_configs = [name for name in dir(cfg) if name.startswith('CONFIG_')]
+        raise ValueError(
+            f"Config '{args.config}' not found in config.py\n"
+            f"Available configs: {', '.join(available_configs)}"
+        )
+
+    # Apply overrides
+    if args.prior_center:
+        config['prior_center'] = args.prior_center
+        logger.info(f"Overriding prior_center: {args.prior_center}")
+    if args.prior_std:
+        config['prior_std'] = args.prior_std
+        logger.info(f"Overriding prior_std: {args.prior_std}")
     if args.epochs:
         config['num_epochs'] = args.epochs
         logger.info(f"Overriding epochs: {args.epochs}")
@@ -230,7 +258,7 @@ def main():
         
         state, metrics, eval_results, collected_samples = run_bayesian_pipeline(
             training_batches,
-            sampler_type=args.sampler,
+            sampler_type=sampler_type,
             config=config,
             use_wandb=not args.no_wandb
         )

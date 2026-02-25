@@ -11,7 +11,7 @@ import posteriors
 import torch.nn.functional as F
 from pathlib import Path
 from torch.optim.lr_scheduler import CosineAnnealingLR
-from config import DEVICE, CONFIG, MODEL_PATH, WANDB_AVAILABLE, CONFIG_SGLD, CONFIG_SGHMC, CONFIG_BAOA
+from config import DEVICE, CONFIG, MODEL_PATH, WANDB_AVAILABLE, CONFIG_SGLD, CONFIG_BAOA, CONFIG_SGHMC
 # Note: This module supports SGMCMC samplers (SGLD, SGHMC, BAOA)
 # These are step-based methods that collect samples during training
 from src.nanogpt_utils import load_model
@@ -74,13 +74,18 @@ def log_posterior_fn(params, batch):
     nll = single_batch_loss(params, batch)
 
     # Select prior center: 'pretrained' (default) or 'zero'
-    prior_mean = ZERO_PARAMS if CONFIG.get('prior_center') == 'zero' else INITIAL_PARAMS
+    prior_center_setting = CONFIG.get('prior_center', 'pretrained')
+    prior_mean = ZERO_PARAMS if prior_center_setting == 'zero' else INITIAL_PARAMS
+
+    # Scale sd_diag by pretrained weight magnitudes for relative prior
+    prior_std = CONFIG.get('prior_std', 1)
+    sd_diag = {k: prior_std * (v.abs() + 1e-4) for k, v in INITIAL_PARAMS.items()}
 
     # Compute log prior
     log_prior = posteriors.diag_normal_log_prob(
         params,
         mean=prior_mean,
-        sd_diag=CONFIG.get('prior_std', 0.01)
+        sd_diag=sd_diag
     )
 
     # Total number of predictions in training set
@@ -90,8 +95,7 @@ def log_posterior_fn(params, batch):
     # nll is mean loss per prediction in batch
     log_likelihood = -nll * total_samples
 
-    beta = CONFIG.get('prior_beta', 1.0 / total_samples)
-    log_posterior = log_likelihood + beta * log_prior
+    log_posterior = log_likelihood + log_prior
 
     return log_posterior, {}
 
@@ -230,6 +234,7 @@ class BayesianSamplerPipeline:
         print(f"- Warmup steps: {self.config.get('warmup_steps', 200)}")
         print(f"- Sampling steps: {self.config.get('sampling_steps', 1000)}")
         print(f"- Thinning (collect every Nth): {self.config.get('thinning', 10)}")
+        print(f"- Prior std: {self.config.get('prior_std', 1)}")
 
         return transform, state
 
@@ -257,6 +262,7 @@ class BayesianSamplerPipeline:
         print(f"- Warmup steps: {self.config.get('warmup_steps', 200)}")
         print(f"- Sampling steps: {self.config.get('sampling_steps', 1000)}")
         print(f"- Thinning (collect every Nth): {self.config.get('thinning', 10)}")
+        print(f"- Prior std: {self.config.get('prior_std', 1)}")
 
         return transform, state
 
@@ -282,6 +288,7 @@ class BayesianSamplerPipeline:
         print(f"- Warmup steps: {self.config.get('warmup_steps', 200)}")
         print(f"- Sampling steps: {self.config.get('sampling_steps', 1000)}")
         print(f"- Thinning (collect every Nth): {self.config.get('thinning', 10)}")
+        print(f"- Prior std: {self.config.get('prior_std', 1)}")
 
         return transform, state
 
@@ -753,12 +760,22 @@ def run_bayesian_pipeline(training_batches, sampler_type='sgld', config=None, us
         else:
             raise ValueError(f"Unknown sampler type: {sampler_type}. Must be one of: 'sgld', 'sghmc', 'baoa'")
 
+    # Update global CONFIG with passed config to ensure log_posterior_fn uses the right values
+    CONFIG.update(config)
+
+    # Debug: Print prior_center setting
+    print(f"\n{'='*60}")
+    print(f"DEBUG: Global CONFIG updated")
+    print(f"  prior_center: {CONFIG.get('prior_center')}")
+    print(f"  prior_std: {CONFIG.get('prior_std')}")
+    print(f"{'='*60}\n")
+
     pipeline = BayesianSamplerPipeline(
         sampler_type=sampler_type,
         config=config,
         use_wandb=use_wandb
     )
-    
+
     try:
         transform, state = pipeline.setup_sampler(log_posterior_fn, params)
         state, metrics = pipeline.run_training(
