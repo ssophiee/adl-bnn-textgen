@@ -76,10 +76,26 @@ class EvaluationConfig:
 
 
 # =============================================================================
+# Resume / Checkpoint Helpers
+# =============================================================================
+
+def _combo_key(result: Dict) -> tuple:
+    """Return a hashable key that uniquely identifies a generation combo."""
+    return (
+        str(result.get('model_path', '')),
+        str(result.get('prompt', '')),
+        result.get('temperature'),
+        result.get('top_k'),
+        result.get('num_samples'),
+    )
+
+
+# =============================================================================
 # Text Generation Phase
 # =============================================================================
 
-def generate_all_texts(config: EvaluationConfig) -> Dict[str, Dict[str, Any]]:
+def generate_all_texts(config: EvaluationConfig,
+                       previous_results: Optional[Dict[str, Dict]] = None) -> Dict[str, Dict[str, Any]]:
     """
     Generate texts from all models with all parameter combinations.
 
@@ -102,7 +118,15 @@ def generate_all_texts(config: EvaluationConfig) -> Dict[str, Dict[str, Any]]:
             ...
         }
     """
+    # Build skip set from previous results
     results = {}
+    skip_set = set()
+    if previous_results:
+        for uid, res in previous_results.items():
+            if 'error' not in res:
+                skip_set.add(_combo_key(res))
+                results[uid] = res  # carry forward
+
     total_generations = (len(config.model_paths) *
                         len(config.test_prompts) *
                         len(config.temperatures) *
@@ -113,6 +137,9 @@ def generate_all_texts(config: EvaluationConfig) -> Dict[str, Dict[str, Any]]:
     print(f"Starting Text Generation Phase")
     print(f"{'='*80}")
     print(f"Total generations to perform: {total_generations}")
+    if skip_set:
+        print(f"Already completed (resuming): {len(skip_set)}")
+        print(f"Remaining: {total_generations - len(skip_set)}")
     print(f"Models: {len(config.model_paths)}")
     print(f"Prompts: {len(config.test_prompts)}")
     print(f"Parameter combinations: {len(config.temperatures) * len(config.top_k_values) * len(config.num_samples_values)}")
@@ -142,6 +169,13 @@ def generate_all_texts(config: EvaluationConfig) -> Dict[str, Dict[str, Any]]:
                 for top_k in config.top_k_values:
                     for num_samples in config.num_samples_values:
                         generation_count += 1
+
+                        # Skip if already completed
+                        combo = (str(model_path), prompt, temperature, top_k, num_samples)
+                        if combo in skip_set:
+                            print(f"    [{generation_count}/{total_generations}] "
+                                  f"temp={temperature}, top_k={top_k}, samples={num_samples}... SKIP (cached)")
+                            continue
 
                         # Generate unique ID
                         unique_id = str(uuid.uuid4())
@@ -206,6 +240,9 @@ def generate_all_texts(config: EvaluationConfig) -> Dict[str, Dict[str, Any]]:
                                 raise ValueError(f"Unknown model_type: {model_type}. Must be 'bayesian' or 'standard'")
 
                             print("✓")
+
+                            # Save checkpoint after each successful generation
+                            save_generation_results(results, config.output_path)
 
                         except Exception as e:
                             print(f"✗ Error: {str(e)}")
@@ -340,7 +377,8 @@ Only output the JSON, nothing else."""
 def evaluate_with_qwen(generation_results: Dict[str, Dict],
                        model_name: str = "qwen/qwen-2.5-7b-instruct",
                        api_key: Optional[str] = None,
-                       use_local: bool = False) -> Dict[str, Dict]:
+                       use_local: bool = False,
+                       scores_checkpoint_path: Optional[str] = None) -> Dict[str, Dict]:
     """
     Use Qwen2.5-7B to score all generated texts.
 
@@ -388,7 +426,8 @@ def evaluate_with_qwen(generation_results: Dict[str, Dict],
 
     if use_local:
         # Use local transformers-based evaluation
-        all_scores = _evaluate_with_local_qwen(results_by_prompt, model_name)
+        all_scores = _evaluate_with_local_qwen(results_by_prompt, model_name,
+                                                scores_checkpoint_path=scores_checkpoint_path)
     else:
         # Use API-based evaluation (placeholder - needs implementation)
         print("Note: API-based evaluation requires implementation.")
@@ -403,7 +442,8 @@ def evaluate_with_qwen(generation_results: Dict[str, Dict],
 
 
 def _evaluate_with_local_qwen(results_by_prompt: Dict[str, Dict],
-                               model_name: str) -> Dict[str, Dict]:
+                               model_name: str,
+                               scores_checkpoint_path: Optional[str] = None) -> Dict[str, Dict]:
     """
     Evaluate texts using local Qwen model via transformers.
 
@@ -477,6 +517,11 @@ def _evaluate_with_local_qwen(results_by_prompt: Dict[str, Dict],
                     scores = json.loads(json_str)
                     all_scores.update(scores)
                     print(f"  ✓ Evaluated {len(scores)} texts")
+
+                    # Checkpoint scores after each prompt group
+                    if scores_checkpoint_path:
+                        with open(scores_checkpoint_path, 'w') as f:
+                            json.dump(all_scores, f, indent=2)
                 else:
                     print(f"  ✗ Failed to extract JSON from response")
             except json.JSONDecodeError as e:
@@ -716,24 +761,68 @@ def run_evaluation_pipeline(
     config = EvaluationConfig(
         test_prompts=test_prompts,
         model_paths=model_paths,
-        model_types=model_types, 
+        model_types=model_types,
         change_params=change_params,
         output_path=output_path,
         device=device
     )
 
-    # Phase 1: Generate all texts
-    generation_results = generate_all_texts(config)
+    # Auto-resume: load previous generation results if output file exists
+    previous_results = None
+    output_file = Path(output_path)
+    if output_file.exists() and output_file.stat().st_size > 0:
+        try:
+            previous_results = load_generation_results(str(output_file))
+            print(f"Loaded {len(previous_results)} previous results from: {output_file}")
+        except Exception as e:
+            print(f"Warning: could not load previous results: {e}")
+
+    # Phase 1: Generate all texts (skips already-completed combos)
+    generation_results = generate_all_texts(config, previous_results=previous_results)
 
     # Save generation results
     save_generation_results(generation_results, config.output_path)
 
     # Phase 2: Evaluate with LLM judge
-    evaluation_scores = evaluate_with_qwen(
-        generation_results,
-        model_name=qwen_model,
-        use_local=use_local_qwen
-    )
+    # Auto-resume: load previous scores from _with_scores.json or _scores_checkpoint.json
+    previous_scores = {}
+    for scores_file in [
+        config.output_path.replace('.json', '_with_scores.json'),
+        config.output_path.replace('.json', '_scores_checkpoint.json'),
+    ]:
+        scores_path = Path(scores_file)
+        if scores_path.exists() and scores_path.stat().st_size > 0:
+            try:
+                prev_scored = json.loads(scores_path.read_text())
+                for uid, res in prev_scored.items():
+                    if uid not in previous_scores and 'quality_score' in res:
+                        previous_scores[uid] = {
+                            'quality_score': res['quality_score'],
+                            'diversity_score': res['diversity_score'],
+                            'relevance_score': res['relevance_score'],
+                            'brief_reasoning': res.get('brief_reasoning', ''),
+                        }
+                print(f"Loaded {len(previous_scores)} previous scores from: {scores_path}")
+            except Exception as e:
+                print(f"Warning: could not load previous scores from {scores_path}: {e}")
+
+    # Only send un-scored results to the judge
+    new_results = {uid: res for uid, res in generation_results.items()
+                   if uid not in previous_scores and 'error' not in res}
+
+    scores_checkpoint = config.output_path.replace('.json', '_scores_checkpoint.json')
+    if new_results:
+        new_scores = evaluate_with_qwen(
+            new_results,
+            model_name=qwen_model,
+            use_local=use_local_qwen,
+            scores_checkpoint_path=scores_checkpoint
+        )
+    else:
+        new_scores = {}
+        print("All results already scored — skipping LLM judge phase.")
+
+    evaluation_scores = {**previous_scores, **new_scores}
 
     # Phase 3: Aggregate results
     aggregated_results, full_results = aggregate_results(
