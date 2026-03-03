@@ -122,12 +122,19 @@ def generate_all_texts(config: EvaluationConfig,
             ...
         }
     """
-    # Build skip set from previous results
+    # Build skip set from previous results (only for current prompts/models)
     results = {}
     skip_set = set()
+    current_prompts = set(config.test_prompts)
+    current_models = set(str(p) for p in config.model_paths)
     if previous_results:
         for uid, res in previous_results.items():
             if 'error' not in res:
+                # Only carry forward results matching current config
+                if res.get('prompt') not in current_prompts:
+                    continue
+                if str(res.get('model_path', '')) not in current_models:
+                    continue
                 skip_set.add(_combo_key(res))
                 results[uid] = res  # carry forward
 
