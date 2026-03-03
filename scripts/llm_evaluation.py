@@ -169,6 +169,20 @@ def generate_all_texts(config: EvaluationConfig,
     for model_idx, (model_path, model_type) in enumerate(zip(config.model_paths, config.model_types)):
         print(f"\n--- Processing model {model_idx + 1}/{len(config.model_paths)}: {Path(model_path).name} (type: {model_type}) ---")
 
+        # Check if all generations for this model are already cached
+        all_cached = all(
+            (str(model_path), prompt, temp, tk, ns) in skip_set
+            for prompt in config.test_prompts
+            for temp in config.temperatures
+            for tk in config.top_k_values
+            for ns in config.num_samples_values
+        )
+        if all_cached:
+            n_combos = len(config.test_prompts) * len(config.temperatures) * len(config.top_k_values) * len(config.num_samples_values)
+            generation_count += n_combos
+            print(f"  All {n_combos} generations cached — skipping model load")
+            continue
+
         # Load model once for all generations of this model
         bayesian_loaded = None
         if model_type == 'bayesian':
