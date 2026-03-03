@@ -95,8 +95,11 @@ def load_bayesian_model(model_path, device=DEVICE, meta_path=None):
     """
     Load a Bayesian model checkpoint once for repeated generation.
 
+    Pre-stacks collected samples into batched tensors for vmap acceleration.
+
     Returns:
-        Tuple of (model, collected_samples, encode, decode, device)
+        Tuple of (model, stacked_params, total_samples, encode, decode)
+        - stacked_params: dict of {param_name: tensor(total_samples, *param_shape)}
     """
     from external.nanogpt.model import GPT, GPTConfig
 
@@ -109,6 +112,11 @@ def load_bayesian_model(model_path, device=DEVICE, meta_path=None):
         )
 
     collected_samples = checkpoint_data['collected_samples']
+    total_samples = len(collected_samples)
+
+    # Pre-stack all samples for vmap batching: {name: (N, *shape)}
+    stacked_params = {k: torch.stack([s[k] for s in collected_samples])
+                      for k in collected_samples[0]}
 
     model_args = checkpoint_data.get('model_args', {
         'n_layer': 6, 'n_head': 6, 'n_embd': 384,
@@ -123,28 +131,33 @@ def load_bayesian_model(model_path, device=DEVICE, meta_path=None):
         meta_path = Path(META_PATH)
     encode, decode = _load_tokenizer(meta_path)
 
-    return model, collected_samples, encode, decode
+    # Free the list of dicts (stacked_params holds all data now)
+    del collected_samples, checkpoint_data
+
+    return model, stacked_params, total_samples, encode, decode
 
 
-def generate_text_bayesian_from_loaded(model, collected_samples, encode, decode,
-                                        start_prompt, max_new_tokens=500,
-                                        temperature=1.0, top_k=None,
-                                        num_samples=None, device=DEVICE):
+def generate_text_bayesian_from_loaded(model, stacked_params, total_samples,
+                                        encode, decode, start_prompt,
+                                        max_new_tokens=500, temperature=1.0,
+                                        top_k=None, num_samples=None, device=DEVICE):
     """
-    Generate text using a pre-loaded Bayesian model and collected samples.
+    Generate text using a pre-loaded Bayesian model with vmap-batched BMA.
 
-    Use load_bayesian_model() to obtain model, collected_samples, encode, decode.
+    Uses torch.vmap to run all parameter-sample forward passes as a single
+    batched GPU operation instead of a sequential loop.
 
     Args:
         model: Pre-loaded GPT model
-        collected_samples: List of parameter sample dicts
+        stacked_params: Dict of {name: tensor(N, *shape)} from load_bayesian_model
+        total_samples: Total number of collected samples
         encode: Tokenizer encode function
         decode: Tokenizer decode function
         start_prompt: Starting text string
         max_new_tokens: Number of tokens to generate
         temperature: Sampling temperature
         top_k: If set, only sample from top k tokens
-        num_samples: Number of samples to use (default: all samples)
+        num_samples: Number of samples to use (default: all)
         device: Device for tensors
 
     Returns:
@@ -154,28 +167,52 @@ def generate_text_bayesian_from_loaded(model, collected_samples, encode, decode,
     import numpy as np
     import torch.nn.functional as F
 
-    # Select samples to use
-    if num_samples is None or num_samples > len(collected_samples):
-        param_samples = collected_samples
+    # Select samples (slice the stacked tensors)
+    if num_samples is None or num_samples > total_samples:
+        params = stacked_params
+        n_used = total_samples
     else:
-        param_samples = collected_samples[-num_samples:]
+        params = {k: v[-num_samples:] for k, v in stacked_params.items()}
+        n_used = num_samples
 
-    # Encode starting prompt
     context = torch.tensor(encode(start_prompt), dtype=torch.long, device=device).unsqueeze(0)
+
+    # Set up vmap-batched forward with sequential fallback
+    use_vmap = True
+    batched_forward = None
+    try:
+        from torch.func import vmap, functional_call as fc
+
+        def _forward_single(p, ctx):
+            logits, _ = fc(model, p, (ctx,))
+            return logits[:, -1, :]
+
+        batched_forward = vmap(_forward_single, in_dims=(0, None))
+    except ImportError:
+        use_vmap = False
 
     generated_tokens = []
     token_uncertainties = []
 
     with torch.no_grad():
         for _ in range(max_new_tokens):
-            all_logits = []
+            if use_vmap:
+                try:
+                    all_logits = batched_forward(params, context) / temperature
+                except Exception as e:
+                    print(f"vmap failed, falling back to sequential: {e}")
+                    use_vmap = False
 
-            for params in param_samples:
-                logits, _ = func.functional_call(model, params, (context,))
-                logits = logits[:, -1, :] / temperature
-                all_logits.append(logits)
+            if not use_vmap:
+                # Sequential fallback
+                logits_list = []
+                for i in range(n_used):
+                    single_p = {k: v[i] for k, v in params.items()}
+                    logits, _ = func.functional_call(model, single_p, (context,))
+                    logits_list.append(logits[:, -1, :] / temperature)
+                all_logits = torch.stack(logits_list)
 
-            probs = torch.stack([F.softmax(l, dim=-1) for l in all_logits])
+            probs = F.softmax(all_logits, dim=-1)
             mean_probs = probs.mean(dim=0)
 
             entropy = -(mean_probs * torch.log(mean_probs + 1e-8)).sum(dim=-1)
@@ -200,7 +237,7 @@ def generate_text_bayesian_from_loaded(model, collected_samples, encode, decode,
         'token_uncertainties': token_uncertainties,
         'avg_uncertainty': np.mean(token_uncertainties),
         'max_uncertainty': np.max(token_uncertainties),
-        'num_samples_used': len(param_samples)
+        'num_samples_used': n_used
     }
 
     return full_text, uncertainty_info
@@ -230,11 +267,11 @@ def generate_text_bayesian_sgmcmc(model_path, start_prompt,
         generated_text: String of generated text
         uncertainty_info: Dict with token-level uncertainties
     """
-    model, collected_samples, encode, decode = load_bayesian_model(
+    model, stacked_params, total_samples, encode, decode = load_bayesian_model(
         model_path, device=device, meta_path=meta_path
     )
     return generate_text_bayesian_from_loaded(
-        model, collected_samples, encode, decode,
+        model, stacked_params, total_samples, encode, decode,
         start_prompt, max_new_tokens, temperature, top_k, num_samples, device
     )
 

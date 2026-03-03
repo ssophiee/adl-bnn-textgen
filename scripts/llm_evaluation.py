@@ -169,7 +169,7 @@ def generate_all_texts(config: EvaluationConfig,
         if model_type == 'bayesian':
             try:
                 bayesian_loaded = load_bayesian_model(model_path, device=config.device)
-                print(f"  Loaded model with {len(bayesian_loaded[1])} collected samples")
+                print(f"  Loaded model with {bayesian_loaded[2]} collected samples (vmap-stacked)")
             except Exception as e:
                 print(f"  Failed to load model: {e}")
 
@@ -200,9 +200,10 @@ def generate_all_texts(config: EvaluationConfig,
                             if model_type == 'bayesian':
                                 if bayesian_loaded is None:
                                     raise RuntimeError("Model failed to load earlier")
-                                model_obj, collected_samples, encode, decode = bayesian_loaded
+                                model_obj, stacked_params, total_samples, encode, decode = bayesian_loaded
                                 generated_text, unc_info = generate_text_bayesian_from_loaded(
-                                    model_obj, collected_samples, encode, decode,
+                                    model_obj, stacked_params, total_samples,
+                                    encode, decode,
                                     start_prompt=prompt,
                                     max_new_tokens=config.max_new_tokens,
                                     temperature=temperature,
