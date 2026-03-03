@@ -149,6 +149,7 @@ def generate_all_texts(config: EvaluationConfig,
     print(f"{'='*80}\n")
 
     generation_count = 0
+    new_generation_count = 0  # tracks unsaved new generations
 
     # Load prompt sources once at the beginning
     prompt_sources = {}
@@ -253,8 +254,11 @@ def generate_all_texts(config: EvaluationConfig,
 
                             print("✓")
 
-                            # Save checkpoint after each successful generation
-                            save_generation_results(results, config.output_path)
+                            # Save checkpoint every 10 new generations
+                            new_generation_count += 1
+                            if new_generation_count % 10 == 0:
+                                save_generation_results(results, config.output_path)
+                                print(f"    [checkpoint saved — {new_generation_count} new generations]")
 
                         except Exception as e:
                             print(f"✗ Error: {str(e)}")
@@ -268,6 +272,12 @@ def generate_all_texts(config: EvaluationConfig,
                                 "num_samples": num_samples,
                                 "error": str(e)
                             }
+
+        # Save checkpoint after finishing all generations for this model
+        if new_generation_count > 0:
+            save_generation_results(results, config.output_path)
+            print(f"  [checkpoint saved after model {model_idx + 1}]")
+            new_generation_count = 0
 
         # Free model memory before loading next model
         del bayesian_loaded
@@ -295,8 +305,6 @@ def save_generation_results(results: Dict[str, Dict], output_path: str):
 
     with open(output_path, 'w') as f:
         json.dump(results, f, indent=2)
-
-    print(f"Saved generation results to: {output_path}")
 
 
 def load_generation_results(input_path: str) -> Dict[str, Dict]:
