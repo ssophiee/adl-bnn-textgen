@@ -9,6 +9,7 @@ This module provides a comprehensive evaluation pipeline that:
 """
 
 import json
+import time
 import uuid
 from pathlib import Path
 from typing import List, Dict, Tuple, Any, Optional
@@ -150,6 +151,9 @@ def generate_all_texts(config: EvaluationConfig,
 
     generation_count = 0
     new_generation_count = 0  # tracks unsaved new generations
+    completed_count = 0  # actual generations done (not skipped)
+    gen_start_time = time.time()
+    remaining_generations = total_generations - len(skip_set)
 
     # Load prompt sources once at the beginning
     prompt_sources = {}
@@ -252,7 +256,12 @@ def generate_all_texts(config: EvaluationConfig,
                             else:
                                 raise ValueError(f"Unknown model_type: {model_type}. Must be 'bayesian' or 'standard'")
 
-                            print("✓")
+                            completed_count += 1
+                            elapsed = time.time() - gen_start_time
+                            avg_time = elapsed / completed_count
+                            eta_seconds = avg_time * (remaining_generations - completed_count)
+                            eta_min = eta_seconds / 60
+                            print(f"✓ ({avg_time:.1f}s/gen, ETA: {eta_min:.1f}min)")
 
                             # Save checkpoint every 10 new generations
                             new_generation_count += 1
