@@ -91,11 +91,17 @@ def _load_tokenizer(meta_path):
     return encode, decode
 
 
-def load_bayesian_model(model_path, device=DEVICE, meta_path=None):
+def load_bayesian_model(model_path, device=DEVICE, meta_path=None, use_half=True):
     """
     Load a Bayesian model checkpoint once for repeated generation.
 
     Pre-stacks collected samples into batched tensors for vmap acceleration.
+
+    Args:
+        model_path: Path to checkpoint
+        device: Device to load to
+        meta_path: Path to meta.pkl tokenizer file
+        use_half: If True and device is CUDA, use float16 for faster inference
 
     Returns:
         Tuple of (model, stacked_params, total_samples, encode, decode)
@@ -126,6 +132,12 @@ def load_bayesian_model(model_path, device=DEVICE, meta_path=None):
     model = GPT(gptconf)
     model.eval()
     model.to(device)
+
+    # Cast to float16 for faster GPU inference
+    if use_half and device != 'cpu' and torch.cuda.is_available():
+        model = model.half()
+        stacked_params = {k: v.half() for k, v in stacked_params.items()}
+        print(f"  Using float16 inference")
 
     if meta_path is None:
         meta_path = Path(META_PATH)
@@ -223,7 +235,7 @@ def generate_text_bayesian_from_loaded(model, stacked_params, total_samples,
                 mean_probs[mean_probs < v[:, [-1]]] = 0.0
                 mean_probs = mean_probs / mean_probs.sum(dim=-1, keepdim=True)
 
-            next_token = torch.multinomial(mean_probs, num_samples=1)
+            next_token = torch.multinomial(mean_probs.float(), num_samples=1)
             generated_tokens.append(next_token.item())
 
             context = torch.cat([context, next_token], dim=1)
