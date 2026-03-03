@@ -489,15 +489,77 @@ def evaluate_with_qwen(generation_results: Dict[str, Dict],
     return all_scores
 
 
+def _score_batch_with_qwen(batch: Dict[str, Dict], prompt: str,
+                           model, tokenizer, torch_module) -> Dict[str, Dict]:
+    """
+    Score a single sub-batch of texts with Qwen. Returns parsed scores dict.
+    Retries once on JSON parse failure with a reminder to output valid JSON.
+    """
+    judge_prompt = prepare_judge_prompt(batch, prompt)
+
+    messages = [
+        {"role": "system", "content": "You are an expert text evaluator. Always respond with valid JSON only."},
+        {"role": "user", "content": judge_prompt}
+    ]
+
+    # ~100 output tokens per text (scores + brief reasoning)
+    max_new_tokens = max(512, len(batch) * 120)
+
+    for attempt in range(2):
+        text = tokenizer.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=True
+        )
+        model_inputs = tokenizer([text], return_tensors="pt")
+        if torch_module.cuda.is_available():
+            model_inputs = model_inputs.to("cuda")
+
+        with torch_module.no_grad():
+            generated_ids = model.generate(
+                model_inputs.input_ids,
+                max_new_tokens=max_new_tokens,
+                temperature=0.3,
+                do_sample=True
+            )
+
+        generated_ids = [
+            output_ids[len(input_ids):]
+            for input_ids, output_ids in zip(model_inputs.input_ids, generated_ids)
+        ]
+        response = tokenizer.batch_decode(generated_ids, skip_special_tokens=True)[0]
+
+        # Parse JSON
+        json_start = response.find('{')
+        json_end = response.rfind('}') + 1
+        if json_start != -1 and json_end > json_start:
+            try:
+                scores = json.loads(response[json_start:json_end])
+                return scores
+            except json.JSONDecodeError:
+                pass
+
+        # Retry: append a reminder message
+        if attempt == 0:
+            messages.append({"role": "assistant", "content": response})
+            messages.append({"role": "user", "content": "Your response was not valid JSON. Please output ONLY the JSON object with scores, nothing else."})
+
+    return {}  # both attempts failed
+
+
 def _evaluate_with_local_qwen(results_by_prompt: Dict[str, Dict],
                                model_name: str,
-                               scores_checkpoint_path: Optional[str] = None) -> Dict[str, Dict]:
+                               scores_checkpoint_path: Optional[str] = None,
+                               batch_size: int = 8) -> Dict[str, Dict]:
     """
     Evaluate texts using local Qwen model via transformers.
+
+    Splits each prompt group into sub-batches to avoid exceeding context
+    limits and improve JSON parse reliability.
 
     Args:
         results_by_prompt: Results grouped by prompt
         model_name: Qwen model identifier
+        scores_checkpoint_path: Path to save score checkpoints
+        batch_size: Max texts per Qwen call (default 8)
 
     Returns:
         Dictionary of evaluation scores
@@ -516,64 +578,52 @@ def _evaluate_with_local_qwen(results_by_prompt: Dict[str, Dict],
         model.eval()
         print("Model loaded successfully!\n")
 
+        # Count total batches for ETA
+        total_batches = sum(
+            (len(results) + batch_size - 1) // batch_size
+            for results in results_by_prompt.values()
+        )
+        total_texts = sum(len(r) for r in results_by_prompt.values())
+        print(f"Scoring {total_texts} texts in {total_batches} batches (batch_size={batch_size})\n")
+
         all_scores = {}
+        batch_num = 0
+        score_start_time = time.time()
 
         for prompt_idx, (prompt, results) in enumerate(results_by_prompt.items(), 1):
             print(f"Evaluating prompt {prompt_idx}/{len(results_by_prompt)}: '{prompt[:50]}...'")
 
-            # Prepare judge prompt
-            judge_prompt = prepare_judge_prompt(results, prompt)
+            # Split into sub-batches
+            items = list(results.items())
+            for i in range(0, len(items), batch_size):
+                sub_batch = dict(items[i:i + batch_size])
+                batch_num += 1
 
-            # Generate evaluation
-            messages = [
-                {"role": "system", "content": "You are an expert text evaluator."},
-                {"role": "user", "content": judge_prompt}
-            ]
+                scores = _score_batch_with_qwen(sub_batch, prompt, model, tokenizer, torch)
 
-            text = tokenizer.apply_chat_template(
-                messages,
-                tokenize=False,
-                add_generation_prompt=True
-            )
-
-            model_inputs = tokenizer([text], return_tensors="pt")
-            if torch.cuda.is_available():
-                model_inputs = model_inputs.to("cuda")
-
-            with torch.no_grad():
-                generated_ids = model.generate(
-                    model_inputs.input_ids,
-                    max_new_tokens=2048,
-                    temperature=0.3,
-                    do_sample=True
-                )
-
-            generated_ids = [
-                output_ids[len(input_ids):]
-                for input_ids, output_ids in zip(model_inputs.input_ids, generated_ids)
-            ]
-
-            response = tokenizer.batch_decode(generated_ids, skip_special_tokens=True)[0]
-
-            # Parse JSON response
-            try:
-                # Extract JSON from response
-                json_start = response.find('{')
-                json_end = response.rfind('}') + 1
-                if json_start != -1 and json_end > json_start:
-                    json_str = response[json_start:json_end]
-                    scores = json.loads(json_str)
+                if scores:
                     all_scores.update(scores)
-                    print(f"  ✓ Evaluated {len(scores)} texts")
-
-                    # Checkpoint scores after each prompt group
-                    if scores_checkpoint_path:
-                        with open(scores_checkpoint_path, 'w') as f:
-                            json.dump(all_scores, f, indent=2)
+                    scored = len(scores)
                 else:
-                    print(f"  ✗ Failed to extract JSON from response")
-            except json.JSONDecodeError as e:
-                print(f"  ✗ Failed to parse JSON: {e}")
+                    scored = 0
+
+                # ETA
+                elapsed = time.time() - score_start_time
+                avg_per_batch = elapsed / batch_num
+                eta_min = avg_per_batch * (total_batches - batch_num) / 60
+
+                print(f"  batch {batch_num}/{total_batches}: "
+                      f"scored {scored}/{len(sub_batch)} texts "
+                      f"({avg_per_batch:.1f}s/batch, ETA: {eta_min:.1f}min)")
+
+                if scored < len(sub_batch):
+                    missing = set(sub_batch.keys()) - set(scores.keys()) if scores else set(sub_batch.keys())
+                    print(f"    ✗ {len(missing)} texts failed to score")
+
+                # Checkpoint after each batch
+                if scores_checkpoint_path and scores:
+                    with open(scores_checkpoint_path, 'w') as f:
+                        json.dump(all_scores, f, indent=2)
 
         return all_scores
 
