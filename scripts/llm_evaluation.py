@@ -844,6 +844,9 @@ def run_evaluation_pipeline(
                 prev_scored = json.loads(scores_path.read_text())
                 for uid, res in prev_scored.items():
                     if uid not in previous_scores and 'quality_score' in res:
+                        # Skip mock/placeholder scores (-509) so they get re-evaluated
+                        if res['quality_score'] == -509 or res['diversity_score'] == -509 or res['relevance_score'] == -509:
+                            continue
                         previous_scores[uid] = {
                             'quality_score': res['quality_score'],
                             'diversity_score': res['diversity_score'],
