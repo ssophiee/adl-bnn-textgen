@@ -15,7 +15,10 @@ from typing import List, Dict, Tuple, Any, Optional
 from datetime import datetime
 import numpy as np
 
-from src.generation_utils import generate_text_bayesian_sgmcmc, generate_text_standard
+from src.generation_utils import (
+    generate_text_bayesian_sgmcmc, generate_text_standard,
+    load_bayesian_model, generate_text_bayesian_from_loaded,
+)
 from config import DEVICE
 
 
@@ -161,6 +164,15 @@ def generate_all_texts(config: EvaluationConfig,
     for model_idx, (model_path, model_type) in enumerate(zip(config.model_paths, config.model_types)):
         print(f"\n--- Processing model {model_idx + 1}/{len(config.model_paths)}: {Path(model_path).name} (type: {model_type}) ---")
 
+        # Load model once for all generations of this model
+        bayesian_loaded = None
+        if model_type == 'bayesian':
+            try:
+                bayesian_loaded = load_bayesian_model(model_path, device=config.device)
+                print(f"  Loaded model with {len(bayesian_loaded[1])} collected samples")
+            except Exception as e:
+                print(f"  Failed to load model: {e}")
+
         for prompt in config.test_prompts:
             prompt_source = prompt_sources.get(prompt, 'unknown')
             print(f"\n  Prompt: '{prompt[:50]}...' [source: {prompt_source}]")
@@ -186,9 +198,11 @@ def generate_all_texts(config: EvaluationConfig,
 
                         try:
                             if model_type == 'bayesian':
-                                # Generate text with Bayesian model
-                                generated_text, unc_info = generate_text_bayesian_sgmcmc(
-                                    model_path=model_path,
+                                if bayesian_loaded is None:
+                                    raise RuntimeError("Model failed to load earlier")
+                                model_obj, collected_samples, encode, decode = bayesian_loaded
+                                generated_text, unc_info = generate_text_bayesian_from_loaded(
+                                    model_obj, collected_samples, encode, decode,
                                     start_prompt=prompt,
                                     max_new_tokens=config.max_new_tokens,
                                     temperature=temperature,
@@ -211,19 +225,16 @@ def generate_all_texts(config: EvaluationConfig,
                                 }
 
                             elif model_type == 'standard':
-                                # Generate text with standard model
-                                # For standard models, num_samples means independent generations
                                 generated_texts = generate_text_standard(
                                     model_path=model_path,
                                     start_prompt=prompt,
                                     max_new_tokens=config.max_new_tokens,
                                     temperature=temperature,
                                     top_k=top_k,
-                                    num_samples=1,  # Generate one text
+                                    num_samples=1,
                                     device=config.device
                                 )
 
-                                # Store result (take first generated text)
                                 results[unique_id] = {
                                     "model_path": str(model_path),
                                     "model_type": model_type,
@@ -231,9 +242,9 @@ def generate_all_texts(config: EvaluationConfig,
                                     "prompt_source": prompt_source,
                                     "temperature": temperature,
                                     "top_k": top_k,
-                                    "num_samples": num_samples,  # Store for reference but not used
+                                    "num_samples": num_samples,
                                     "generated_text": generated_texts[0],
-                                    "uncertainty_info": None  # No uncertainty for standard models
+                                    "uncertainty_info": None
                                 }
 
                             else:
@@ -246,7 +257,6 @@ def generate_all_texts(config: EvaluationConfig,
 
                         except Exception as e:
                             print(f"✗ Error: {str(e)}")
-                            # Store error information
                             results[unique_id] = {
                                 "model_path": str(model_path),
                                 "model_type": model_type,
@@ -257,6 +267,12 @@ def generate_all_texts(config: EvaluationConfig,
                                 "num_samples": num_samples,
                                 "error": str(e)
                             }
+
+        # Free model memory before loading next model
+        del bayesian_loaded
+        import torch, gc
+        torch.cuda.empty_cache()
+        gc.collect()
 
     print(f"\n{'='*80}")
     print(f"Generation Phase Complete: {len([r for r in results.values() if 'error' not in r])}/{total_generations} successful")
