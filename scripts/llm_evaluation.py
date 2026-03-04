@@ -923,6 +923,11 @@ def run_evaluation_pipeline(
     new_results = {uid: res for uid, res in generation_results.items()
                    if uid not in previous_scores and 'error' not in res}
 
+    # Free any leftover GPU memory before loading Qwen
+    import torch, gc
+    torch.cuda.empty_cache()
+    gc.collect()
+
     scores_checkpoint = config.output_path.replace('.json', '_scores_checkpoint.json')
     if new_results:
         new_scores = evaluate_with_qwen(
