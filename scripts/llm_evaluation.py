@@ -739,8 +739,8 @@ def aggregate_results(generation_results: Dict[str, Dict],
                 'by_config': {}
             }
 
-        # Skip if scores are missing
-        if 'quality_score' not in result:
+        # Skip if any score is missing
+        if not all(k in result for k in ('quality_score', 'diversity_score', 'relevance_score')):
             continue
 
         model_stats[model_path]['total_generations'] += 1
