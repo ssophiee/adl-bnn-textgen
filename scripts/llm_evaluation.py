@@ -555,7 +555,7 @@ def _score_batch_with_qwen(batch: Dict[str, Dict], prompt: str,
 def _evaluate_with_local_qwen(results_by_prompt: Dict[str, Dict],
                                model_name: str,
                                scores_checkpoint_path: Optional[str] = None,
-                               batch_size: int = 16) -> Dict[str, Dict]:
+                               batch_size: int = 32) -> Dict[str, Dict]:
     """
     Evaluate texts using local Qwen model via transformers.
 
@@ -572,16 +572,21 @@ def _evaluate_with_local_qwen(results_by_prompt: Dict[str, Dict],
         Dictionary of evaluation scores
     """
     try:
-        from transformers import AutoModelForCausalLM, AutoTokenizer
+        from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
         import torch
 
         print(f"Loading {model_name}...")
         tokenizer = AutoTokenizer.from_pretrained(model_name)
-        model = AutoModelForCausalLM.from_pretrained(
-            model_name,
-            torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
-            device_map="auto" if torch.cuda.is_available() else None
-        )
+
+        if torch.cuda.is_available():
+            quantization_config = BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_compute_dtype=torch.float16)
+            model = AutoModelForCausalLM.from_pretrained(
+                model_name,
+                quantization_config=quantization_config,
+                device_map="auto",
+            )
+        else:
+            model = AutoModelForCausalLM.from_pretrained(model_name, torch_dtype=torch.float32)
         model.eval()
         print("Model loaded successfully!\n")
 
