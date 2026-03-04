@@ -588,7 +588,8 @@ def _evaluate_with_local_qwen(results_by_prompt: Dict[str, Dict],
         else:
             model = AutoModelForCausalLM.from_pretrained(model_name, torch_dtype=torch.float32)
         model.eval()
-        print("Model loaded successfully!\n")
+        gpu_alloc = torch.cuda.memory_allocated() / 1024**3 if torch.cuda.is_available() else 0
+        print(f"Model loaded successfully! (GPU: {gpu_alloc:.1f}GB, 4-bit quantized: {torch.cuda.is_available()})\n")
 
         # Count total batches for ETA
         total_batches = sum(
