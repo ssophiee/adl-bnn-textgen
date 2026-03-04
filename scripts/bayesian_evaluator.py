@@ -149,13 +149,12 @@ class BayesianNanoGPTEvaluator:
                     logits_list = []
                     for params in param_samples:
                         logits, _ = func.functional_call(self.model, params, (x_cond,))
-                        logits_list.append(logits[:, -1, :])
+                        logits_list.append(logits[:, -1, :] / 0.8)
 
-                    avg_logits = torch.stack(logits_list).mean(dim=0)
-                    avg_logits = avg_logits / 0.8
-
-                    probs = F.softmax(avg_logits, dim=-1)
-                    next_token = torch.multinomial(probs, num_samples=1)
+                    # BMA: average probabilities (after softmax), not logits
+                    all_probs = F.softmax(torch.stack(logits_list), dim=-1)
+                    mean_probs = all_probs.mean(dim=0)
+                    next_token = torch.multinomial(mean_probs.float(), num_samples=1)
                     generated_tokens.append(next_token.item())
                     x = torch.cat((x, next_token), dim=1)
 
