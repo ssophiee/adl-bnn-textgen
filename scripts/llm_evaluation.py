@@ -555,7 +555,7 @@ def _score_batch_with_qwen(batch: Dict[str, Dict], prompt: str,
 def _evaluate_with_local_qwen(results_by_prompt: Dict[str, Dict],
                                model_name: str,
                                scores_checkpoint_path: Optional[str] = None,
-                               batch_size: int = 32) -> Dict[str, Dict]:
+                               batch_size: int = 8) -> Dict[str, Dict]:
     """
     Evaluate texts using local Qwen model via transformers.
 
