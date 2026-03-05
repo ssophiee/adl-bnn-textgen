@@ -23,7 +23,7 @@
 | SGHMC-ZC-5e6 | SGHMC | zero-centered | 5e-06 | 3.83 | 4.89 | 5.81 | 4.84 |
 | SGHMC-PP-5e6 | SGHMC | pretrained | 5e-06 | 4.19 | 4.81 | 5.33 | 4.78 |
 
-![LLM Judge — All Models](figures/llm_judge_all_models.png)
+![LLM Judge - All Models](figures/llm_judge_all_models.png)
 
 ![LLM Judge Heatmap](figures/llm_judge_heatmap.png)
 
@@ -32,7 +32,7 @@
 | Metric | SGHMC | BAOA | Winner |
 |--------|-------|------|--------|
 | Quality | 4.17 | 4.12 | **SGHMC** |
-| Diversity | 5.12 | 5.12 | **SGHMC** |
+| Diversity | 5.12 | 5.12 | **Tie** |
 | Relevance | 5.91 | 5.88 | **SGHMC** |
 
 ![Sampler Comparison](figures/sampler_comparison.png)
@@ -49,13 +49,14 @@
 
 ### Learning Rate Effect
 
-Each sampler was tested at two learning rates. "Lower" = BAOA 1e-6 / SGHMC 5e-6; "Higher" = BAOA 5e-6 / SGHMC 1e-5.
+Each sampler was tested at two learning rates. The LR effect differs by sampler:
+- **SGHMC**: Higher LR (1e-5) is better than lower (5e-6) across all metrics
+- **BAOA**: Lower LR (1e-6) is better than higher (5e-6) across all metrics
 
-| Metric | Lower LR | Higher LR | Winner |
-|--------|----------|-----------|--------|
-| Quality | 4.12 | 4.18 | **Higher** |
-| Diversity | 4.98 | 5.25 | **Higher** |
-| Relevance | 5.80 | 5.99 | **Higher** |
+| Sampler | Lower LR avg | Higher LR avg | Better LR |
+|---------|-------------|---------------|-----------|
+| SGHMC | 4.81 | 5.32 | **Higher** |
+| BAOA | 5.12 | 4.96 | **Lower** |
 
 ![Learning Rate Comparison](figures/lr_comparison.png)
 
@@ -66,10 +67,12 @@ Each sampler was tested at two learning rates. "Lower" = BAOA 1e-6 / SGHMC 5e-6;
 ## Key Findings
 
 1. **Best model**: SGHMC-ZC-1e5 (avg 5.52/10)
-2. **Learning rate is the dominant factor**: Effect size 0.171 vs sampler 0.026 vs prior 0.011. Higher LR consistently improves diversity and relevance.
-3. **SGHMC vs BAOA**: Nearly identical on average (5.07 vs 5.04). Sampler choice has minimal impact.
-4. **Prior type**: Pretrained and zero-centered priors perform similarly (5.06 vs 5.05). Prior choice has the smallest effect.
-5. **Practical implication**: Tuning the learning rate matters more than choosing between SGHMC/BAOA or pretrained/zero-centered priors.
+2. **Learning rate is the largest factor** (effect size 0.341), but it interacts with sampler choice:
+   - SGHMC prefers higher LR (1e-5 >> 5e-6, +0.51 avg)
+   - BAOA prefers lower LR (1e-6 >> 5e-6, +0.17 avg)
+3. **SGHMC vs BAOA**: Nearly identical on average (5.07 vs 5.04). Sampler choice alone has minimal impact (effect 0.026).
+4. **Prior type**: Pretrained and zero-centered priors perform similarly (5.06 vs 5.05). Smallest effect (0.011).
+5. **Practical implication**: The optimal LR depends on the sampler. Each sampler has a preferred operating regime rather than one LR being universally better.
 
 ---
 *Generated from `notebooks/analysis_report.ipynb`*
