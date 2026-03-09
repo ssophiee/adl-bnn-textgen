@@ -10,3 +10,4 @@ bayesian_nanogpt/
 .github/
 run_all_configs.sh
 /logs
+temp_output.json

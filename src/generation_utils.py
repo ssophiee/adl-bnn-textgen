@@ -91,47 +91,30 @@ def _load_tokenizer(meta_path):
     return encode, decode
 
 
-def generate_text_bayesian_sgmcmc(model_path, start_prompt,
-                                   max_new_tokens=500, temperature=1.0, top_k=None,
-                                   num_samples=None, device=DEVICE, meta_path=None):
+def load_bayesian_model(model_path, device=DEVICE, meta_path=None):
     """
-    Generate text using collected SGMCMC samples from a trained Bayesian model.
+    Load a Bayesian SGMCMC model and its collected samples once, for repeated generation.
 
-    This function loads the model, tokenizer, and collected samples, then generates text
-    with uncertainty quantification.
+    Use this together with generate_text_bayesian_from_loaded() when sweeping over
+    multiple hyperparameter combinations for the same model, to avoid reloading
+    the checkpoint on every call.
 
     Args:
         model_path: Path to the saved Bayesian model checkpoint (.pt file)
-        start_prompt: Starting text string
-        max_new_tokens: Number of tokens to generate
-        temperature: Sampling temperature
-        top_k: If set, only sample from top k tokens
-        num_samples: Number of samples to use (default: all samples)
-        device: Device to run generation on ('cpu', 'cuda', 'mps')
-        meta_path: Path to meta.pkl file (default: auto-detect from external/nanogpt/)
+        device: Device to load model onto ('cpu', 'cuda', 'mps')
+        meta_path: Path to meta.pkl tokenizer file (default: auto-detect)
 
     Returns:
-        generated_text: String of generated text
-        uncertainty_info: Dict with token-level uncertainties
-
-    Example:
-        >>> text, unc = generate_text_bayesian_sgmcmc(
-        ...     'checkpoints/sgld_model.pt',
-        ...     "To be or not to be",
-        ...     max_new_tokens=100,
-        ...     temperature=0.8,
-        ...     top_k=200,
-        ...     num_samples=20
-        ... )
+        model: Loaded GPT model (eval mode, on device)
+        collected_samples: List of posterior parameter dicts
+        encode: Tokenizer encode function
+        decode: Tokenizer decode function
     """
-    import numpy as np
     import torch.nn.functional as F
     from external.nanogpt.model import GPT, GPTConfig
 
-    # Load checkpoint
     checkpoint_data = load_checkpoint_for_generation(model_path, device=device)
 
-    # Check if we have collected samples
     if 'collected_samples' not in checkpoint_data or not checkpoint_data['collected_samples']:
         raise ValueError(
             f"No collected samples found in checkpoint. "
@@ -140,35 +123,58 @@ def generate_text_bayesian_sgmcmc(model_path, start_prompt,
 
     collected_samples = checkpoint_data['collected_samples']
 
-    # Load model architecture
-    model_state_dict = checkpoint_data['model_state_dict']
-
     model_args = checkpoint_data.get('model_args', {
-        'n_layer': 6, 'n_head': 6, 'n_embd': 384, 
+        'n_layer': 6, 'n_head': 6, 'n_embd': 384,
         'block_size': 256, 'bias': False, 'vocab_size': 65, 'dropout': 0.0
     })
-    gptconf = GPTConfig(**model_args)
+    model = GPT(GPTConfig(**model_args))
+    model.eval()
+    model.to(device)
 
-    model = GPT(gptconf)
-    model.eval()  
-    model.to(device)  # Use the device parameter, not global DEVICE
-    
-    # Load tokenizer
     if meta_path is None:
         meta_path = Path(META_PATH)
-
     encode, decode = _load_tokenizer(meta_path)
+
+    return model, collected_samples, encode, decode
+
+
+def generate_text_bayesian_from_loaded(model, collected_samples, encode, decode,
+                                        start_prompt, max_new_tokens=500, temperature=1.0,
+                                        top_k=None, num_samples=None, device=DEVICE):
+    """
+    Generate text from a pre-loaded Bayesian SGMCMC model.
+
+    Prefer this over generate_text_bayesian_sgmcmc() when running multiple
+    hyperparameter combinations for the same model — load once with
+    load_bayesian_model(), then call this in a loop.
+
+    Args:
+        model: GPT model loaded via load_bayesian_model()
+        collected_samples: Posterior samples loaded via load_bayesian_model()
+        encode: Tokenizer encode function
+        decode: Tokenizer decode function
+        start_prompt: Starting text string
+        max_new_tokens: Number of tokens to generate
+        temperature: Sampling temperature
+        top_k: If set, only sample from top k tokens
+        num_samples: Number of posterior samples to use for BMA (default: all)
+        device: Device tensors are on
+
+    Returns:
+        full_text: Generated text string (prompt + continuation)
+        uncertainty_info: Dict with token-level uncertainties
+    """
+    import numpy as np
+    import torch.nn.functional as F
 
     # Select samples to use
     if num_samples is None or num_samples > len(collected_samples):
         param_samples = collected_samples
     else:
-        # Use the last N samples (most converged)
         param_samples = collected_samples[-num_samples:]
 
     print(f"Using {len(param_samples)} SGMCMC samples for generation")
 
-    # Encode starting prompt
     context = torch.tensor(encode(start_prompt), dtype=torch.long, device=device).unsqueeze(0)
 
     generated_tokens = []
@@ -176,13 +182,10 @@ def generate_text_bayesian_sgmcmc(model_path, start_prompt,
 
     with torch.no_grad():
         for _ in range(max_new_tokens):
-            # Get predictions from all parameter samples
             all_logits = []
 
             for params in param_samples:
-                # Forward pass with current parameters
                 logits, _ = func.functional_call(model, params, (context,))
-                # Get logits for last token
                 logits = logits[:, -1, :] / temperature
                 all_logits.append(logits)
 
@@ -191,28 +194,22 @@ def generate_text_bayesian_sgmcmc(model_path, start_prompt,
             mean_probs = probs.mean(dim=0)
 
             # Calculate uncertainty (entropy of averaged predictions)
-            entropy = -(mean_probs * torch.log(mean_probs + 1e-8)).sum(dim=-1)
+            entropy = -(mean_probs * torch.log(mean_probs.clamp(min=1e-4))).sum(dim=-1)
             token_uncertainties.append(entropy.item())
 
             # Apply top-k filtering if specified
             if top_k is not None:
                 v, _ = torch.topk(mean_probs, min(top_k, mean_probs.size(-1)))
                 mean_probs[mean_probs < v[:, [-1]]] = 0.0
-                mean_probs = mean_probs / mean_probs.sum(dim=-1, keepdim=True)  # renormalize
+                mean_probs = mean_probs / mean_probs.sum(dim=-1, keepdim=True)
 
-            # Sample next token
             next_token = torch.multinomial(mean_probs, num_samples=1)
-
             generated_tokens.append(next_token.item())
-
-            # Append to context
             context = torch.cat([context, next_token], dim=1)
 
-            # Crop context to max sequence length
             if context.size(1) > model.config.block_size:
                 context = context[:, -model.config.block_size:]
 
-    # Decode generated tokens
     generated_text = decode(generated_tokens)
     full_text = start_prompt + generated_text
 
@@ -224,6 +221,39 @@ def generate_text_bayesian_sgmcmc(model_path, start_prompt,
     }
 
     return full_text, uncertainty_info
+
+
+def generate_text_bayesian_sgmcmc(model_path, start_prompt,
+                                   max_new_tokens=500, temperature=1.0, top_k=None,
+                                   num_samples=None, device=DEVICE, meta_path=None):
+    """
+    Generate text using collected SGMCMC samples from a trained Bayesian model.
+
+    Loads the model and generates in one call. For sweeping multiple hyperparameter
+    combinations over the same model, use load_bayesian_model() +
+    generate_text_bayesian_from_loaded() instead to avoid repeated checkpoint loading.
+
+    Args:
+        model_path: Path to the saved Bayesian model checkpoint (.pt file)
+        start_prompt: Starting text string
+        max_new_tokens: Number of tokens to generate
+        temperature: Sampling temperature
+        top_k: If set, only sample from top k tokens
+        num_samples: Number of samples to use (default: all samples)
+        device: Device to run generation on ('cpu', 'cuda', 'mps')
+        meta_path: Path to meta.pkl file (default: auto-detect)
+
+    Returns:
+        generated_text: String of generated text
+        uncertainty_info: Dict with token-level uncertainties
+    """
+    model, collected_samples, encode, decode = load_bayesian_model(
+        model_path, device=device, meta_path=meta_path
+    )
+    return generate_text_bayesian_from_loaded(
+        model, collected_samples, encode, decode,
+        start_prompt, max_new_tokens, temperature, top_k, num_samples, device
+    )
 
 def save_generation_result(
     start_prompt: str,

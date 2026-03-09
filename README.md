@@ -2,7 +2,9 @@
 
 Bayesian inference methods for text generation using a NanoGPT-based character-level language model trained on Shakespeare text. This project compares SGMCMC samplers (BAOA, SGHMC) against a deterministic baseline to evaluate whether Bayesian approaches can improve text generation quality.
 
-**Key Finding:** BAOA achieves the best perplexity (−16% vs baseline) and outperforms the deterministic baseline on all LLM-judge metrics (+2.8% quality, +2.2% diversity, +1.4% relevance).
+**Key Finding:** Individual LLM-judge metrics can be improved over the deterministic baseline — SGHMC with a pretrained-centered prior achieves higher relevance (7.70 vs baseline peak 7.47), and BAOA-ZC-1e6 matches baseline quality and exceeds diversity. However, no configuration wins on all three metrics simultaneously.
+
+> **Open direction:** All experiments use a fixed `prior_std=1.0` (`sd_diag` in the [posteriors](https://normal-computing.github.io/posteriors/) library), which controls the strength of prior regularization. Tuning `prior_std` may be the missing ingredient to allow Bayesian models to outperform the baseline across all metrics at once.
 
 ## Repository Structure
 
@@ -120,8 +122,11 @@ CONFIG_BAOA = {
     'warmup_steps': 200,        # Burn-in period
     'sampling_steps': 1000,     # Sampling iterations
     'thinning': 10,             # Collect every Nth sample
+    'prior_std': 1.0,           # Prior standard deviation (sd_diag in posteriors)
 }
 ```
+
+> **Note on `prior_std`:** This maps to `sd_diag` in the [posteriors](https://normal-computing.github.io/posteriors/) library — the diagonal of the prior covariance, controlling the strength of prior regularization. All reported experiments use `prior_std=1.0`. Varying this parameter is a natural next step, particularly for the zero-centered prior where tighter regularization (smaller `prior_std`) may compensate for the lack of a pretrained initialization.
 
 ## Results
 
@@ -144,18 +149,31 @@ Unless explicitly labeled as "internal", tables/plots show the GPT-2 external pe
 
 Model families are close on BLEU/ROUGE (within ~2%). BAOA achieves the best perplexity (−16%).
 
-### LLM-Judge Metrics (Quality/Diversity/Relevance)
+### LLM-Judge Metrics (Quality/Diversity/Relevance, 0–10 scale)
 
-| Model | vs Baseline | Verdict |
-|-------|-------------|---------|
-| **BAOA @ 1e-06** | **+2.8% quality, +2.2% diversity, +1.4% relevance** | **Recommended** |
-| SGHMC @ 5e-06 | +0.8% quality, +2.6% diversity, -4.7% relevance | Mixed |
-| SGHMC @ 1e-05 | -7.9% quality, -13.8% relevance | Avoid |
+Evaluated with Qwen2.5-7B-Instruct across a 2×2×2 design (sampler × prior × LR), 15 prompts × 8 decoding configs per model.
 
-### Recommended Configuration
+| Model | Prior | LR | Quality | Diversity | Relevance |
+|-------|-------|----|---------|-----------|-----------|
+| **Baseline** | — | — | **6.13** | **5.77** | 6.21 |
+| SGHMC-PP-1e5 | Pretrained | 1e-05 | 6.11 | 5.66 | 6.28 |
+| SGHMC-ZC-5e6 | Zero | 5e-06 | 6.13 | 5.65 | 6.25 |
+| BAOA-PP-5e6 | Pretrained | 5e-06 | 6.05 | 5.58 | **6.34** |
+| SGHMC-PP-5e6 | Pretrained | 5e-06 | 6.00 | 5.40 | 6.40 |
+| BAOA-ZC-1e6 | Zero | 1e-06 | 5.98 | **5.70** | 6.05 |
+| BAOA-PP-1e6 | Pretrained | 1e-06 | 5.95 | 5.68 | 6.12 |
+| BAOA-ZC-5e6 | Zero | 5e-06 | 5.91 | 5.48 | 6.28 |
+| SGHMC-ZC-1e5 | Zero | 1e-05 | 5.78 | 5.59 | 5.95 |
 
-- **Model:** BAOA with learning rate 1e-06
-- **Generation:** temp=0.3, top_k=10, samples=10
+**At optimal decoding configs:**
+
+| Goal | Model | Config | Quality | Diversity | Relevance |
+|------|-------|--------|---------|-----------|-----------|
+| Max relevance | SGHMC-PP-5e6 | temp=0.3, top_k=50, samples=20 | 6.77 | 6.43 | **7.70** |
+| Max quality + diversity | BAOA-ZC-1e6 | temp=0.8, top_k=50, samples=20 | **6.83** | **6.60** | 6.97 |
+| Baseline reference | Baseline | temp=0.3, top_k=10, samples=20 | 6.83 | 6.57 | 7.47 |
+
+Pretrained-centered prior is the most important design choice. Avoid SGHMC-ZC-1e5 (zero prior + high LR) — largest drop across all metrics.
 
 ## Evaluation
 
