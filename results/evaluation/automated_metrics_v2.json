@@ -1,0 +1,234 @@
+{
+  "sghmc/pretrained-prior/run_20260224-230657": {
+    "model_path": "/content/drive/MyDrive/samplers/sghmc_sampler/pretrained-prior/run_20260224-230657/sghmc_model.pt",
+    "prior_type": "pretrained-prior",
+    "sampler_type": "sghmc",
+    "train": {
+      "split": "train",
+      "sampler_type": "sghmc",
+      "total_tokens": 1003854,
+      "num_posterior_samples": 10,
+      "perplexity": 3.281079712962917,
+      "bleu": 0.15713818333540155,
+      "rouge1": 0.5859195402298851,
+      "rouge2": 0.18503694581280788,
+      "rougeL": 0.34827586206896555,
+      "elapsed_seconds": 117.5
+    },
+    "val": {
+      "split": "val",
+      "sampler_type": "sghmc",
+      "total_tokens": 111540,
+      "num_posterior_samples": 10,
+      "perplexity": 4.329654636400435,
+      "bleu": 0.06799358782202054,
+      "rouge1": 0.43100038963569065,
+      "rouge2": 0.14823157030507303,
+      "rougeL": 0.3038573933372297,
+      "elapsed_seconds": 115.0
+    }
+  },
+  "sghmc/pretrained-prior/run_20260224-232547": {
+    "model_path": "/content/drive/MyDrive/samplers/sghmc_sampler/pretrained-prior/run_20260224-232547/sghmc_model.pt",
+    "prior_type": "pretrained-prior",
+    "sampler_type": "sghmc",
+    "train": {
+      "split": "train",
+      "sampler_type": "sghmc",
+      "total_tokens": 1003854,
+      "num_posterior_samples": 10,
+      "perplexity": 3.3576039041150536,
+      "bleu": 0.184338321928745,
+      "rouge1": 0.5474137931034483,
+      "rouge2": 0.18626847290640394,
+      "rougeL": 0.36810344827586206,
+      "elapsed_seconds": 118.5
+    },
+    "val": {
+      "split": "val",
+      "sampler_type": "sghmc",
+      "total_tokens": 111540,
+      "num_posterior_samples": 10,
+      "perplexity": 4.390079814133577,
+      "bleu": 0.0,
+      "rouge1": 0.45382817066043246,
+      "rouge2": 0.08865914786967419,
+      "rougeL": 0.28243717124488604,
+      "elapsed_seconds": 122.8
+    }
+  },
+  "sghmc/zero-centered-prior/run_20260224-231606": {
+    "model_path": "/content/drive/MyDrive/samplers/sghmc_sampler/zero-centered-prior/run_20260224-231606/sghmc_model.pt",
+    "prior_type": "zero-centered-prior",
+    "sampler_type": "sghmc",
+    "train": {
+      "split": "train",
+      "sampler_type": "sghmc",
+      "total_tokens": 1003854,
+      "num_posterior_samples": 10,
+      "perplexity": 3.276638643325779,
+      "bleu": 0.11096149165364705,
+      "rouge1": 0.596551724137931,
+      "rouge2": 0.19088669950738918,
+      "rougeL": 0.3948275862068965,
+      "elapsed_seconds": 121.6
+    },
+    "val": {
+      "split": "val",
+      "sampler_type": "sghmc",
+      "total_tokens": 111540,
+      "num_posterior_samples": 10,
+      "perplexity": 4.331998781959858,
+      "bleu": 0.0,
+      "rouge1": 0.5574274303526203,
+      "rouge2": 0.1667044767090139,
+      "rougeL": 0.3130527956360803,
+      "elapsed_seconds": 119.7
+    }
+  },
+  "sghmc/zero-centered-prior/run_20260224-233423": {
+    "model_path": "/content/drive/MyDrive/samplers/sghmc_sampler/zero-centered-prior/run_20260224-233423/sghmc_model.pt",
+    "prior_type": "zero-centered-prior",
+    "sampler_type": "sghmc",
+    "train": {
+      "split": "train",
+      "sampler_type": "sghmc",
+      "total_tokens": 1003854,
+      "num_posterior_samples": 10,
+      "perplexity": 3.4221994861429605,
+      "bleu": 0.0,
+      "rouge1": 0.5579467737139459,
+      "rouge2": 0.15717153385029975,
+      "rougeL": 0.37201159678858164,
+      "elapsed_seconds": 122.2
+    },
+    "val": {
+      "split": "val",
+      "sampler_type": "sghmc",
+      "total_tokens": 111540,
+      "num_posterior_samples": 10,
+      "perplexity": 4.465272848888533,
+      "bleu": 0.13821098063724324,
+      "rouge1": 0.5515139397295109,
+      "rouge2": 0.2315390749601276,
+      "rougeL": 0.36137941288053566,
+      "elapsed_seconds": 116.8
+    }
+  },
+  "baoa/pretrained-prior/run_20260207-192540": {
+    "model_path": "/content/drive/MyDrive/samplers/baoa_sampler/pretrained-prior/run_20260207-192540/baoa_model.pt",
+    "prior_type": "pretrained-prior",
+    "sampler_type": "baoa",
+    "train": {
+      "split": "train",
+      "sampler_type": "baoa",
+      "total_tokens": 1003854,
+      "num_posterior_samples": 10,
+      "perplexity": 3.2608713279273003,
+      "bleu": 0.18451136170231022,
+      "rouge1": 0.48905123709331777,
+      "rouge2": 0.2538296171463141,
+      "rougeL": 0.354719462302747,
+      "elapsed_seconds": 116.1
+    },
+    "val": {
+      "split": "val",
+      "sampler_type": "baoa",
+      "total_tokens": 111540,
+      "num_posterior_samples": 10,
+      "perplexity": 4.310271861095443,
+      "bleu": 0.08911706518637937,
+      "rouge1": 0.4916666666666667,
+      "rouge2": 0.15517241379310343,
+      "rougeL": 0.3333333333333333,
+      "elapsed_seconds": 118.5
+    }
+  },
+  "baoa/pretrained-prior/run_20260225-101215": {
+    "model_path": "/content/drive/MyDrive/samplers/baoa_sampler/pretrained-prior/run_20260225-101215/baoa_model.pt",
+    "prior_type": "pretrained-prior",
+    "sampler_type": "baoa",
+    "train": {
+      "split": "train",
+      "sampler_type": "baoa",
+      "total_tokens": 1003854,
+      "num_posterior_samples": 10,
+      "perplexity": 3.2810612318776378,
+      "bleu": 0.10227228721574026,
+      "rouge1": 0.5534044418468732,
+      "rouge2": 0.19394931293751622,
+      "rougeL": 0.4001120202610559,
+      "elapsed_seconds": 119.1
+    },
+    "val": {
+      "split": "val",
+      "sampler_type": "baoa",
+      "total_tokens": 111540,
+      "num_posterior_samples": 10,
+      "perplexity": 4.329526378739444,
+      "bleu": 0.08865830969490036,
+      "rouge1": 0.5762563187630092,
+      "rouge2": 0.16064730792498488,
+      "rougeL": 0.3438299137674695,
+      "elapsed_seconds": 119.9
+    }
+  },
+  "baoa/zero-centered-prior/run_20260207-232141": {
+    "model_path": "/content/drive/MyDrive/samplers/baoa_sampler/zero-centered-prior/run_20260207-232141/baoa_model.pt",
+    "prior_type": "zero-centered-prior",
+    "sampler_type": "baoa",
+    "train": {
+      "split": "train",
+      "sampler_type": "baoa",
+      "total_tokens": 1003854,
+      "num_posterior_samples": 10,
+      "perplexity": 3.260242915476725,
+      "bleu": 0.04845505745444075,
+      "rouge1": 0.47209234365867914,
+      "rouge2": 0.07034828450436435,
+      "rougeL": 0.3458065458796026,
+      "elapsed_seconds": 116.9
+    },
+    "val": {
+      "split": "val",
+      "sampler_type": "baoa",
+      "total_tokens": 111540,
+      "num_posterior_samples": 10,
+      "perplexity": 4.3102546480108614,
+      "bleu": 0.11960676066213848,
+      "rouge1": 0.6103448275862069,
+      "rouge2": 0.1933497536945813,
+      "rougeL": 0.3816091954022988,
+      "elapsed_seconds": 119.2
+    }
+  },
+  "baoa/zero-centered-prior/run_20260225-102111": {
+    "model_path": "/content/drive/MyDrive/samplers/baoa_sampler/zero-centered-prior/run_20260225-102111/baoa_model.pt",
+    "prior_type": "zero-centered-prior",
+    "sampler_type": "baoa",
+    "train": {
+      "split": "train",
+      "sampler_type": "baoa",
+      "total_tokens": 1003854,
+      "num_posterior_samples": 10,
+      "perplexity": 3.276611593988217,
+      "bleu": 0.14575953097419464,
+      "rouge1": 0.5029761904761905,
+      "rouge2": 0.21392081736909324,
+      "rougeL": 0.3577380952380952,
+      "elapsed_seconds": 118.1
+    },
+    "val": {
+      "split": "val",
+      "sampler_type": "baoa",
+      "total_tokens": 111540,
+      "num_posterior_samples": 10,
+      "perplexity": 4.331832112387218,
+      "bleu": 0.10324469783492216,
+      "rouge1": 0.5707821936489382,
+      "rouge2": 0.168243885576009,
+      "rougeL": 0.34953243717124494,
+      "elapsed_seconds": 120.3
+    }
+  }
+}

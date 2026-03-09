@@ -11,3 +11,5 @@ bayesian_nanogpt/
 run_all_configs.sh
 /logs
 temp_output.json
+
+# notebooks/colab_eval_run.ipynb

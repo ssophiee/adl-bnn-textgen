@@ -177,6 +177,20 @@ def generate_text_bayesian_from_loaded(model, collected_samples, encode, decode,
 
     context = torch.tensor(encode(start_prompt), dtype=torch.long, device=device).unsqueeze(0)
 
+    # Set up vmap-batched forward with sequential fallback
+    use_vmap = True
+    batched_forward = None
+    try:
+        from torch.func import vmap, functional_call as fc
+
+        def _forward_single(p, ctx):
+            logits, _ = fc(model, p, (ctx,))
+            return logits[:, -1, :]
+
+        batched_forward = vmap(_forward_single, in_dims=(0, None))
+    except ImportError:
+        use_vmap = False
+
     generated_tokens = []
     token_uncertainties = []
 
@@ -197,7 +211,6 @@ def generate_text_bayesian_from_loaded(model, collected_samples, encode, decode,
             entropy = -(mean_probs * torch.log(mean_probs.clamp(min=1e-4))).sum(dim=-1)
             token_uncertainties.append(entropy.item())
 
-            # Apply top-k filtering if specified
             if top_k is not None:
                 v, _ = torch.topk(mean_probs, min(top_k, mean_probs.size(-1)))
                 mean_probs[mean_probs < v[:, [-1]]] = 0.0
@@ -300,8 +313,6 @@ def save_generation_result(
     # Generate sample ID
     if sample_id is None:
         sample_id = datetime.now().strftime("%Y%m%d_%H%M%S")
-    else:
-        pass
 
     # Create entry for this sample
     results[sample_id] = {
@@ -399,7 +410,7 @@ def generate_text_standard(model_path, start_prompt,
     generated_texts = []
 
     with torch.no_grad():
-        for i in range(num_samples):
+        for _ in range(num_samples):
             # Encode starting prompt
             start_ids = encode(start_prompt)
             x = torch.tensor(start_ids, dtype=torch.long, device=device)[None, ...]

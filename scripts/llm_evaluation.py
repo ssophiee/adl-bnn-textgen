@@ -9,13 +9,17 @@ This module provides a comprehensive evaluation pipeline that:
 """
 
 import json
+import time
 import uuid
 from pathlib import Path
 from typing import List, Dict, Tuple, Any, Optional
 from datetime import datetime
 import numpy as np
 
-from src.generation_utils import generate_text_bayesian_sgmcmc, generate_text_standard
+from src.generation_utils import (
+    generate_text_bayesian_sgmcmc, generate_text_standard,
+    load_bayesian_model, generate_text_bayesian_from_loaded,
+)
 from config import DEVICE
 
 
@@ -76,10 +80,26 @@ class EvaluationConfig:
 
 
 # =============================================================================
+# Resume / Checkpoint Helpers
+# =============================================================================
+
+def _combo_key(result: Dict) -> tuple:
+    """Return a hashable key that uniquely identifies a generation combo."""
+    return (
+        str(result.get('model_path', '')),
+        str(result.get('prompt', '')),
+        result.get('temperature'),
+        result.get('top_k'),
+        result.get('num_samples'),
+    )
+
+
+# =============================================================================
 # Text Generation Phase
 # =============================================================================
 
-def generate_all_texts(config: EvaluationConfig) -> Dict[str, Dict[str, Any]]:
+def generate_all_texts(config: EvaluationConfig,
+                       previous_results: Optional[Dict[str, Dict]] = None) -> Dict[str, Dict[str, Any]]:
     """
     Generate texts from all models with all parameter combinations.
 
@@ -102,7 +122,22 @@ def generate_all_texts(config: EvaluationConfig) -> Dict[str, Dict[str, Any]]:
             ...
         }
     """
+    # Build skip set from previous results (only for current prompts/models)
     results = {}
+    skip_set = set()
+    current_prompts = set(config.test_prompts)
+    current_models = set(str(p) for p in config.model_paths)
+    if previous_results:
+        for uid, res in previous_results.items():
+            if 'error' not in res:
+                # Only carry forward results matching current config
+                if res.get('prompt') not in current_prompts:
+                    continue
+                if str(res.get('model_path', '')) not in current_models:
+                    continue
+                skip_set.add(_combo_key(res))
+                results[uid] = res  # carry forward
+
     total_generations = (len(config.model_paths) *
                         len(config.test_prompts) *
                         len(config.temperatures) *
@@ -113,12 +148,19 @@ def generate_all_texts(config: EvaluationConfig) -> Dict[str, Dict[str, Any]]:
     print(f"Starting Text Generation Phase")
     print(f"{'='*80}")
     print(f"Total generations to perform: {total_generations}")
+    if skip_set:
+        print(f"Already completed (resuming): {len(skip_set)}")
+        print(f"Remaining: {total_generations - len(skip_set)}")
     print(f"Models: {len(config.model_paths)}")
     print(f"Prompts: {len(config.test_prompts)}")
     print(f"Parameter combinations: {len(config.temperatures) * len(config.top_k_values) * len(config.num_samples_values)}")
     print(f"{'='*80}\n")
 
     generation_count = 0
+    new_generation_count = 0  # tracks unsaved new generations
+    completed_count = 0  # actual generations done (not skipped)
+    gen_start_time = time.time()
+    remaining_generations = total_generations - len(skip_set)
 
     # Load prompt sources once at the beginning
     prompt_sources = {}
@@ -134,6 +176,29 @@ def generate_all_texts(config: EvaluationConfig) -> Dict[str, Dict[str, Any]]:
     for model_idx, (model_path, model_type) in enumerate(zip(config.model_paths, config.model_types)):
         print(f"\n--- Processing model {model_idx + 1}/{len(config.model_paths)}: {Path(model_path).name} (type: {model_type}) ---")
 
+        # Check if all generations for this model are already cached
+        all_cached = all(
+            (str(model_path), prompt, temp, tk, ns) in skip_set
+            for prompt in config.test_prompts
+            for temp in config.temperatures
+            for tk in config.top_k_values
+            for ns in config.num_samples_values
+        )
+        if all_cached:
+            n_combos = len(config.test_prompts) * len(config.temperatures) * len(config.top_k_values) * len(config.num_samples_values)
+            generation_count += n_combos
+            print(f"  All {n_combos} generations cached — skipping model load")
+            continue
+
+        # Load model once for all generations of this model
+        bayesian_loaded = None
+        if model_type == 'bayesian':
+            try:
+                bayesian_loaded = load_bayesian_model(model_path, device=config.device)
+                print(f"  Loaded model with {bayesian_loaded[2]} collected samples (vmap-stacked)")
+            except Exception as e:
+                print(f"  Failed to load model: {e}")
+
         for prompt in config.test_prompts:
             prompt_source = prompt_sources.get(prompt, 'unknown')
             print(f"\n  Prompt: '{prompt[:50]}...' [source: {prompt_source}]")
@@ -142,6 +207,13 @@ def generate_all_texts(config: EvaluationConfig) -> Dict[str, Dict[str, Any]]:
                 for top_k in config.top_k_values:
                     for num_samples in config.num_samples_values:
                         generation_count += 1
+
+                        # Skip if already completed
+                        combo = (str(model_path), prompt, temperature, top_k, num_samples)
+                        if combo in skip_set:
+                            print(f"    [{generation_count}/{total_generations}] "
+                                  f"temp={temperature}, top_k={top_k}, samples={num_samples}... SKIP (cached)")
+                            continue
 
                         # Generate unique ID
                         unique_id = str(uuid.uuid4())
@@ -152,9 +224,12 @@ def generate_all_texts(config: EvaluationConfig) -> Dict[str, Dict[str, Any]]:
 
                         try:
                             if model_type == 'bayesian':
-                                # Generate text with Bayesian model
-                                generated_text, unc_info = generate_text_bayesian_sgmcmc(
-                                    model_path=model_path,
+                                if bayesian_loaded is None:
+                                    raise RuntimeError("Model failed to load earlier")
+                                model_obj, stacked_params, total_samples, encode, decode = bayesian_loaded
+                                generated_text, unc_info = generate_text_bayesian_from_loaded(
+                                    model_obj, stacked_params, total_samples,
+                                    encode, decode,
                                     start_prompt=prompt,
                                     max_new_tokens=config.max_new_tokens,
                                     temperature=temperature,
@@ -177,19 +252,16 @@ def generate_all_texts(config: EvaluationConfig) -> Dict[str, Dict[str, Any]]:
                                 }
 
                             elif model_type == 'standard':
-                                # Generate text with standard model
-                                # For standard models, num_samples means independent generations
                                 generated_texts = generate_text_standard(
                                     model_path=model_path,
                                     start_prompt=prompt,
                                     max_new_tokens=config.max_new_tokens,
                                     temperature=temperature,
                                     top_k=top_k,
-                                    num_samples=1,  # Generate one text
+                                    num_samples=1,
                                     device=config.device
                                 )
 
-                                # Store result (take first generated text)
                                 results[unique_id] = {
                                     "model_path": str(model_path),
                                     "model_type": model_type,
@@ -197,19 +269,29 @@ def generate_all_texts(config: EvaluationConfig) -> Dict[str, Dict[str, Any]]:
                                     "prompt_source": prompt_source,
                                     "temperature": temperature,
                                     "top_k": top_k,
-                                    "num_samples": num_samples,  # Store for reference but not used
+                                    "num_samples": num_samples,
                                     "generated_text": generated_texts[0],
-                                    "uncertainty_info": None  # No uncertainty for standard models
+                                    "uncertainty_info": None
                                 }
 
                             else:
                                 raise ValueError(f"Unknown model_type: {model_type}. Must be 'bayesian' or 'standard'")
 
-                            print("✓")
+                            completed_count += 1
+                            elapsed = time.time() - gen_start_time
+                            avg_time = elapsed / completed_count
+                            eta_seconds = avg_time * (remaining_generations - completed_count)
+                            eta_min = eta_seconds / 60
+                            print(f"✓ ({avg_time:.1f}s/gen, ETA: {eta_min:.1f}min)")
+
+                            # Save checkpoint every 10 new generations
+                            new_generation_count += 1
+                            if new_generation_count % 10 == 0:
+                                save_generation_results(results, config.output_path)
+                                print(f"    [checkpoint saved — {new_generation_count} new generations]")
 
                         except Exception as e:
                             print(f"✗ Error: {str(e)}")
-                            # Store error information
                             results[unique_id] = {
                                 "model_path": str(model_path),
                                 "model_type": model_type,
@@ -220,6 +302,18 @@ def generate_all_texts(config: EvaluationConfig) -> Dict[str, Dict[str, Any]]:
                                 "num_samples": num_samples,
                                 "error": str(e)
                             }
+
+        # Save checkpoint after finishing all generations for this model
+        if new_generation_count > 0:
+            save_generation_results(results, config.output_path)
+            print(f"  [checkpoint saved after model {model_idx + 1}]")
+            new_generation_count = 0
+
+        # Free model memory before loading next model
+        del bayesian_loaded
+        import torch, gc
+        torch.cuda.empty_cache()
+        gc.collect()
 
     print(f"\n{'='*80}")
     print(f"Generation Phase Complete: {len([r for r in results.values() if 'error' not in r])}/{total_generations} successful")
@@ -241,8 +335,6 @@ def save_generation_results(results: Dict[str, Dict], output_path: str):
 
     with open(output_path, 'w') as f:
         json.dump(results, f, indent=2)
-
-    print(f"Saved generation results to: {output_path}")
 
 
 def load_generation_results(input_path: str) -> Dict[str, Dict]:
@@ -340,7 +432,8 @@ Only output the JSON, nothing else."""
 def evaluate_with_qwen(generation_results: Dict[str, Dict],
                        model_name: str = "qwen/qwen-2.5-7b-instruct",
                        api_key: Optional[str] = None,
-                       use_local: bool = False) -> Dict[str, Dict]:
+                       use_local: bool = False,
+                       scores_checkpoint_path: Optional[str] = None) -> Dict[str, Dict]:
     """
     Use Qwen2.5-7B to score all generated texts.
 
@@ -388,7 +481,8 @@ def evaluate_with_qwen(generation_results: Dict[str, Dict],
 
     if use_local:
         # Use local transformers-based evaluation
-        all_scores = _evaluate_with_local_qwen(results_by_prompt, model_name)
+        all_scores = _evaluate_with_local_qwen(results_by_prompt, model_name,
+                                                scores_checkpoint_path=scores_checkpoint_path)
     else:
         # Use API-based evaluation (placeholder - needs implementation)
         print("Note: API-based evaluation requires implementation.")
@@ -402,85 +496,147 @@ def evaluate_with_qwen(generation_results: Dict[str, Dict],
     return all_scores
 
 
+def _score_batch_with_qwen(batch: Dict[str, Dict], prompt: str,
+                           model, tokenizer, torch_module) -> Dict[str, Dict]:
+    """
+    Score a single sub-batch of texts with Qwen. Returns parsed scores dict.
+    Retries once on JSON parse failure with a reminder to output valid JSON.
+    """
+    judge_prompt = prepare_judge_prompt(batch, prompt)
+
+    messages = [
+        {"role": "system", "content": "You are an expert text evaluator. Always respond with valid JSON only."},
+        {"role": "user", "content": judge_prompt}
+    ]
+
+    # ~100 output tokens per text (scores + brief reasoning)
+    max_new_tokens = max(512, len(batch) * 120)
+
+    for attempt in range(2):
+        text = tokenizer.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=True
+        )
+        model_inputs = tokenizer([text], return_tensors="pt")
+        if torch_module.cuda.is_available():
+            model_inputs = model_inputs.to("cuda")
+
+        with torch_module.no_grad():
+            generated_ids = model.generate(
+                model_inputs.input_ids,
+                max_new_tokens=max_new_tokens,
+                temperature=0.3,
+                do_sample=True
+            )
+
+        generated_ids = [
+            output_ids[len(input_ids):]
+            for input_ids, output_ids in zip(model_inputs.input_ids, generated_ids)
+        ]
+        response = tokenizer.batch_decode(generated_ids, skip_special_tokens=True)[0]
+
+        # Parse JSON
+        json_start = response.find('{')
+        json_end = response.rfind('}') + 1
+        if json_start != -1 and json_end > json_start:
+            try:
+                scores = json.loads(response[json_start:json_end])
+                return scores
+            except json.JSONDecodeError:
+                pass
+
+        # Retry: append a reminder message
+        if attempt == 0:
+            messages.append({"role": "assistant", "content": response})
+            messages.append({"role": "user", "content": "Your response was not valid JSON. Please output ONLY the JSON object with scores, nothing else."})
+
+    return {}  # both attempts failed
+
+
 def _evaluate_with_local_qwen(results_by_prompt: Dict[str, Dict],
-                               model_name: str) -> Dict[str, Dict]:
+                               model_name: str,
+                               scores_checkpoint_path: Optional[str] = None,
+                               batch_size: int = 8) -> Dict[str, Dict]:
     """
     Evaluate texts using local Qwen model via transformers.
+
+    Splits each prompt group into sub-batches to avoid exceeding context
+    limits and improve JSON parse reliability.
 
     Args:
         results_by_prompt: Results grouped by prompt
         model_name: Qwen model identifier
+        scores_checkpoint_path: Path to save score checkpoints
+        batch_size: Max texts per Qwen call (default 8)
 
     Returns:
         Dictionary of evaluation scores
     """
     try:
-        from transformers import AutoModelForCausalLM, AutoTokenizer
+        from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
         import torch
 
         print(f"Loading {model_name}...")
         tokenizer = AutoTokenizer.from_pretrained(model_name)
-        model = AutoModelForCausalLM.from_pretrained(
-            model_name,
-            torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
-            device_map="auto" if torch.cuda.is_available() else None
-        )
+
+        if torch.cuda.is_available():
+            quantization_config = BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_compute_dtype=torch.float16)
+            model = AutoModelForCausalLM.from_pretrained(
+                model_name,
+                quantization_config=quantization_config,
+                device_map="auto",
+            )
+        else:
+            model = AutoModelForCausalLM.from_pretrained(model_name, torch_dtype=torch.float32)
         model.eval()
-        print("Model loaded successfully!\n")
+        gpu_alloc = torch.cuda.memory_allocated() / 1024**3 if torch.cuda.is_available() else 0
+        print(f"Model loaded successfully! (GPU: {gpu_alloc:.1f}GB, 4-bit quantized: {torch.cuda.is_available()})\n")
+
+        # Count total batches for ETA
+        total_batches = sum(
+            (len(results) + batch_size - 1) // batch_size
+            for results in results_by_prompt.values()
+        )
+        total_texts = sum(len(r) for r in results_by_prompt.values())
+        print(f"Scoring {total_texts} texts in {total_batches} batches (batch_size={batch_size})\n")
 
         all_scores = {}
+        batch_num = 0
+        score_start_time = time.time()
 
         for prompt_idx, (prompt, results) in enumerate(results_by_prompt.items(), 1):
             print(f"Evaluating prompt {prompt_idx}/{len(results_by_prompt)}: '{prompt[:50]}...'")
 
-            # Prepare judge prompt
-            judge_prompt = prepare_judge_prompt(results, prompt)
+            # Split into sub-batches
+            items = list(results.items())
+            for i in range(0, len(items), batch_size):
+                sub_batch = dict(items[i:i + batch_size])
+                batch_num += 1
 
-            # Generate evaluation
-            messages = [
-                {"role": "system", "content": "You are an expert text evaluator."},
-                {"role": "user", "content": judge_prompt}
-            ]
+                scores = _score_batch_with_qwen(sub_batch, prompt, model, tokenizer, torch)
 
-            text = tokenizer.apply_chat_template(
-                messages,
-                tokenize=False,
-                add_generation_prompt=True
-            )
-
-            model_inputs = tokenizer([text], return_tensors="pt")
-            if torch.cuda.is_available():
-                model_inputs = model_inputs.to("cuda")
-
-            with torch.no_grad():
-                generated_ids = model.generate(
-                    model_inputs.input_ids,
-                    max_new_tokens=2048,
-                    temperature=0.3,
-                    do_sample=True
-                )
-
-            generated_ids = [
-                output_ids[len(input_ids):]
-                for input_ids, output_ids in zip(model_inputs.input_ids, generated_ids)
-            ]
-
-            response = tokenizer.batch_decode(generated_ids, skip_special_tokens=True)[0]
-
-            # Parse JSON response
-            try:
-                # Extract JSON from response
-                json_start = response.find('{')
-                json_end = response.rfind('}') + 1
-                if json_start != -1 and json_end > json_start:
-                    json_str = response[json_start:json_end]
-                    scores = json.loads(json_str)
+                if scores:
                     all_scores.update(scores)
-                    print(f"  ✓ Evaluated {len(scores)} texts")
+                    scored = len(scores)
                 else:
-                    print(f"  ✗ Failed to extract JSON from response")
-            except json.JSONDecodeError as e:
-                print(f"  ✗ Failed to parse JSON: {e}")
+                    scored = 0
+
+                # ETA
+                elapsed = time.time() - score_start_time
+                avg_per_batch = elapsed / batch_num
+                eta_min = avg_per_batch * (total_batches - batch_num) / 60
+
+                print(f"  batch {batch_num}/{total_batches}: "
+                      f"scored {scored}/{len(sub_batch)} texts "
+                      f"({avg_per_batch:.1f}s/batch, ETA: {eta_min:.1f}min)")
+
+                if scored < len(sub_batch):
+                    missing = set(sub_batch.keys()) - set(scores.keys()) if scores else set(sub_batch.keys())
+                    print(f"    ✗ {len(missing)} texts failed to score")
+
+                # Checkpoint after each batch
+                if scores_checkpoint_path and scores:
+                    with open(scores_checkpoint_path, 'w') as f:
+                        json.dump(all_scores, f, indent=2)
 
         return all_scores
 
@@ -583,8 +739,8 @@ def aggregate_results(generation_results: Dict[str, Dict],
                 'by_config': {}
             }
 
-        # Skip if scores are missing
-        if 'quality_score' not in result:
+        # Skip if any score is missing
+        if not all(k in result for k in ('quality_score', 'diversity_score', 'relevance_score')):
             continue
 
         model_stats[model_path]['total_generations'] += 1
@@ -716,24 +872,76 @@ def run_evaluation_pipeline(
     config = EvaluationConfig(
         test_prompts=test_prompts,
         model_paths=model_paths,
-        model_types=model_types, 
+        model_types=model_types,
         change_params=change_params,
         output_path=output_path,
         device=device
     )
 
-    # Phase 1: Generate all texts
-    generation_results = generate_all_texts(config)
+    # Auto-resume: load previous generation results if output file exists
+    previous_results = None
+    output_file = Path(output_path)
+    if output_file.exists() and output_file.stat().st_size > 0:
+        try:
+            previous_results = load_generation_results(str(output_file))
+            print(f"Loaded {len(previous_results)} previous results from: {output_file}")
+        except Exception as e:
+            print(f"Warning: could not load previous results: {e}")
+
+    # Phase 1: Generate all texts (skips already-completed combos)
+    generation_results = generate_all_texts(config, previous_results=previous_results)
 
     # Save generation results
     save_generation_results(generation_results, config.output_path)
 
     # Phase 2: Evaluate with LLM judge
-    evaluation_scores = evaluate_with_qwen(
-        generation_results,
-        model_name=qwen_model,
-        use_local=use_local_qwen
-    )
+    # Auto-resume: load previous scores from _with_scores.json or _scores_checkpoint.json
+    previous_scores = {}
+    for scores_file in [
+        config.output_path.replace('.json', '_with_scores.json'),
+        config.output_path.replace('.json', '_scores_checkpoint.json'),
+    ]:
+        scores_path = Path(scores_file)
+        if scores_path.exists() and scores_path.stat().st_size > 0:
+            try:
+                prev_scored = json.loads(scores_path.read_text())
+                for uid, res in prev_scored.items():
+                    if uid not in previous_scores and 'quality_score' in res:
+                        # Skip mock/placeholder scores (-509) so they get re-evaluated
+                        if res['quality_score'] == -509 or res['diversity_score'] == -509 or res['relevance_score'] == -509:
+                            continue
+                        previous_scores[uid] = {
+                            'quality_score': res['quality_score'],
+                            'diversity_score': res['diversity_score'],
+                            'relevance_score': res['relevance_score'],
+                            'brief_reasoning': res.get('brief_reasoning', ''),
+                        }
+                print(f"Loaded {len(previous_scores)} previous scores from: {scores_path}")
+            except Exception as e:
+                print(f"Warning: could not load previous scores from {scores_path}: {e}")
+
+    # Only send un-scored results to the judge
+    new_results = {uid: res for uid, res in generation_results.items()
+                   if uid not in previous_scores and 'error' not in res}
+
+    # Free any leftover GPU memory before loading Qwen
+    import torch, gc
+    torch.cuda.empty_cache()
+    gc.collect()
+
+    scores_checkpoint = config.output_path.replace('.json', '_scores_checkpoint.json')
+    if new_results:
+        new_scores = evaluate_with_qwen(
+            new_results,
+            model_name=qwen_model,
+            use_local=use_local_qwen,
+            scores_checkpoint_path=scores_checkpoint
+        )
+    else:
+        new_scores = {}
+        print("All results already scored — skipping LLM judge phase.")
+
+    evaluation_scores = {**previous_scores, **new_scores}
 
     # Phase 3: Aggregate results
     aggregated_results, full_results = aggregate_results(
