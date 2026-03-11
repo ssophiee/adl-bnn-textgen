@@ -107,9 +107,7 @@ Key parameters:
 
 ### Prior Configuration
 
-All reported results use a **pretrained-centered prior** (`prior_center: 'pretrained'`), meaning the prior mean is set to the pretrained NanoGPT weights rather than zero. This is a form of empirical Bayes that provides better performance by leveraging the pretrained initialization.
-
-Alternative: Set `prior_center: 'zero'` for a standard zero-centered Bayesian prior.
+Set `prior_center: 'pretrained'` to use a pretrained-centered prior (prior mean = pretrained NanoGPT weights). Set `prior_center: 'zero'` for a standard zero-centered prior.
 
 ### Sampler Hyperparameters
 
@@ -126,28 +124,30 @@ CONFIG_BAOA = {
 }
 ```
 
-> **Note on `prior_std`:** This maps to `sd_diag` in the [posteriors](https://normal-computing.github.io/posteriors/) library — the diagonal of the prior covariance, controlling the strength of prior regularization. All reported experiments use `prior_std=1.0`. Varying this parameter is a natural next step, particularly for the zero-centered prior where tighter regularization (smaller `prior_std`) may compensate for the lack of a pretrained initialization.
-
 ## Results
 
 See [results/final_report.md](results/final_report.md) for the complete evaluation.
 
 ### Automatic Metrics (BLEU/ROUGE/Perplexity)
 
-**Note on perplexity:** this repo can report two variants.
+> **Note:** These results are based on a **limited evaluation of 4 text samples** (prompt length 30 chars, generation length 30 chars) and should be interpreted with caution.
 
-- **External GPT-2 perplexity** (`perplexity_external_gpt2`): computed via HuggingFace `evaluate` with `model_id='gpt2'` (GPT-2 BPE tokenizer). This is an *external* reference metric.
-- **Internal (training-tokenizer) perplexity** (`perplexity` in the Python evaluators, and `perplexity_internal` in the `blue_rouge_perplexity_eval` notebook): computed under the trained NanoGPT model using the same tokenizer/vocabulary as training (character-level `meta.pkl`).
+**Note on perplexity:** Bayesian models use **internal (BMA) perplexity** computed under the trained NanoGPT model with the character-level tokenizer. The baseline uses **external GPT-2 perplexity** (HuggingFace `evaluate`, `model_id='gpt2'`). These two variants are not directly comparable.
 
-Unless explicitly labeled as "internal", tables/plots show the GPT-2 external perplexity.
+| Model | BLEU | ROUGE-2 | Perplexity (internal) |
+|-------|------|---------|----------------------|
+| BAOA-PP-1e6 | 0.1368 | 0.2045 | 3.79 |
+| BAOA-PP-5e6 | 0.0955 | 0.1773 | 3.81 |
+| BAOA-ZC-1e6 | 0.0840 | 0.1318 | 3.79 |
+| BAOA-ZC-5e6 | 0.1245 | 0.1911 | 3.80 |
+| SGHMC-PP-1e5 | 0.0922 | 0.1375 | 3.87 |
+| SGHMC-PP-5e6 | 0.1126 | 0.1666 | 3.81 |
+| SGHMC-ZC-1e5 | 0.0691 | 0.1944 | 3.94 |
+| SGHMC-ZC-5e6 | 0.0555 | 0.1788 | 3.80 |
 
-| Model | Step Size | BLEU | ROUGE-2 | Perplexity |
-|-------|-----------|------|---------|------------|
-| Baseline | N/A | **0.258** | **0.523** | 125.6 |
-| **BAOA** | 5e-06 | 0.256 | 0.515 | **105.7** |
-| SGHMC | 5e-06 | 0.252 | 0.513 | 122.4 |
+**Baseline (not directly comparable):** BLEU 0.258, ROUGE-2 0.523, Perplexity 125.6 (GPT-2 external, standard generation vs. BMA).
 
-Model families are close on BLEU/ROUGE (within ~2%). BAOA achieves the best perplexity (−16%).
+Perplexity is tightly clustered (3.79–3.94) across all Bayesian models, suggesting all converge to similar language modeling quality. BLEU and ROUGE-2 show more variation but low absolute values, reflecting the difficulty of character-level n-gram matching. On average, BAOA outperforms SGHMC on both BLEU and ROUGE-2.
 
 ### LLM-Judge Metrics (Quality/Diversity/Relevance, 0–10 scale)
 
@@ -158,8 +158,8 @@ Evaluated with Qwen2.5-7B-Instruct across a 2×2×2 design (sampler × prior × 
 | **Baseline** | — | — | **6.13** | **5.77** | 6.21 |
 | SGHMC-PP-1e5 | Pretrained | 1e-05 | 6.11 | 5.66 | 6.28 |
 | SGHMC-ZC-5e6 | Zero | 5e-06 | 6.13 | 5.65 | 6.25 |
-| BAOA-PP-5e6 | Pretrained | 5e-06 | 6.05 | 5.58 | **6.34** |
-| SGHMC-PP-5e6 | Pretrained | 5e-06 | 6.00 | 5.40 | 6.40 |
+| BAOA-PP-5e6 | Pretrained | 5e-06 | 6.05 | 5.58 | 6.34 |
+| SGHMC-PP-5e6 | Pretrained | 5e-06 | 6.00 | 5.40 | **6.40** |
 | BAOA-ZC-1e6 | Zero | 1e-06 | 5.98 | **5.70** | 6.05 |
 | BAOA-PP-1e6 | Pretrained | 1e-06 | 5.95 | 5.68 | 6.12 |
 | BAOA-ZC-5e6 | Zero | 5e-06 | 5.91 | 5.48 | 6.28 |
@@ -189,7 +189,7 @@ Results are in [results/evaluation/](results/evaluation/).
 This project used AI assistants during development:
 
 - **Claude (Anthropic):** Code review and documentation writing
-- **GitHub Copilot:** Code autocompletion during development
+
 
 All AI-generated code was reviewed and validated by the authors. The core Bayesian inference logic, experimental design, and analysis were performed by the authors.
 
